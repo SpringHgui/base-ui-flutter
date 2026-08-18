@@ -170,8 +170,7 @@ lib/
 1. 在相应的 `lib/src/<命名空间>/` 目录中实现
 2. 从 `lib/base_ui_flutter.dart` 导出
 3. 在 `test/` 中添加控件测试
-4. 更新 [components.md](components.md) 和 [CHANGELOG.md](CHANGELOG.md)
-5. 在 `example/lib/pages/` 中添加演示页面
+4. 在 `example/lib/pages/` 中添加演示页面
 
 所有控件**必须**遵循 Token 驱动约定——控件代码中不允许硬编码颜色、字体或间距。
 
