@@ -6,8 +6,8 @@
 
 ---
 
-<video src="./docs/example.mp4" autoplay loop muted playsinline controls></video>
-
+https://github.com/user-attachments/assets/ba5c85a4-3191-4e86-ab58-2a7a0338b1d8
+ 
 ## 简介
 
 **base_ui_flutter 定位为生产力优先的 Flutter 桌面 UI 组件库**——不是"又一套好看的组件"，而是围绕一个目标构建：**让你用更少的时间，交付更快、更密、更耐用的桌面业务软件**。每一个设计决策都服务于生产力：
