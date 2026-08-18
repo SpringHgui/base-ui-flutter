@@ -5,6 +5,8 @@
 
 ---
 
+<video src="./docs/example.mp4" autoplay loop muted playsinline controls></video>
+
 ## 简介
 
 **base_ui_flutter 定位为生产力优先的 Flutter 桌面 UI 组件库**——不是"又一套好看的组件"，而是围绕一个目标构建：**让你用更少的时间，交付更快、更密、更耐用的桌面业务软件**。每一个设计决策都服务于生产力：
