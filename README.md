@@ -1,7 +1,8 @@
 # base_ui_flutter
 
 > **生产力优先的 Flutter 桌面 UI 组件库**
-> 无头核心 · 基于 Token 的主题驱动 · WinForm 级信息密度 · 零硬编码样式
+> 无头核心 · 基于 Token 的主题驱动
+> 默认 WinForms 组件样式，可自由全局定制主题
 
 ---
 
