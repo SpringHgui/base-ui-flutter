@@ -1,0 +1,26 @@
+name: base_ui_flutter
+description: "Headless, token-driven UI infrastructure for desktop-class Flutter apps. Zero styles in the core, a WinForm-like default preset, fully re-themable."
+version: 0.1.0
+repository: https://github.com/SpringHgui/base-ui-flutter
+license: MIT
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+topics:
+  - winform
+  - desktop
+  - ui
+  - widgets
+  - design-system
+  - data-grid
