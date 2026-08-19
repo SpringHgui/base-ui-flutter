@@ -316,18 +316,22 @@ class _WinListViewState<T> extends State<WinListView<T>> {
   }) {
     final isSelected = widget.selectedIndices.contains(index);
 
-    // GestureDetector replaces InkWell to avoid Material ink-highlight
-    // overhead (animation controllers, splash factories) per row.
-    return GestureDetector(
-      onTap: () => _handleTap(index),
-      onDoubleTap:
-          widget.enabled ? () => widget.onItemActivated?.call(index) : null,
+    // 选中走 Listener.onPointerDown(零延迟):onTap 与 onDoubleTap 同注册时,
+    // 单击会被双击判定窗口 hold 约 300ms。双击激活由 GestureDetector 单独处理。
+    return Listener(
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: rowHeight,
-        color: isSelected ? t.primaryColor : null,
-        child: _buildRowContent(
-          t, index, isSelected, itemStyle, selectedItemStyle, hPadding,
+      onPointerDown: widget.enabled ? (_) => _handleTap(index) : null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onDoubleTap: widget.enabled
+            ? () => widget.onItemActivated?.call(index)
+            : null,
+        child: Container(
+          height: rowHeight,
+          color: isSelected ? t.primaryColor : null,
+          child: _buildRowContent(
+            t, index, isSelected, itemStyle, selectedItemStyle, hPadding,
+          ),
         ),
       ),
     );

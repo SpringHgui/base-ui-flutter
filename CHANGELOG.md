@@ -1,5 +1,7 @@
 ## Unreleased
 
+* `ListView` 行选中延迟修复：`onTap` 与 `onDoubleTap` 同注册会让单击被双击判定窗口 hold 约 300ms。选中改为 `Listener.onPointerDown`（按下瞬间触发、零延迟），双击激活单独由 `GestureDetector.onDoubleTap` 处理。
+
 * `MenuStrip` 显式关闭菜单项文字下划线并恢复常规字重:之前为优化首屏速度把下拉面板的 `Material` 替换为 `Container`,但 Text 不再有 Material 的 `DefaultTextStyle` 兜底,会继承应用级某个带 `decoration: underline / TextDecorationStyle.double / color: yellow` 且 `fontWeight: bold` 的样式,导致下拉菜单项文字下方出现两条黄线、字体加粗。已在 `_MenuTopItem` / `_MenuDropDownItem` 的 Text 显式 `decoration: TextDecoration.none` + `fontWeight: FontWeight.w400` 覆盖。
 
 * `MenuStrip` 顶层菜单项高亮修复：行内 `crossAxisAlignment` 改为 `stretch`，hover/打开态背景**填满整行高度**（此前只包住文字形成一条窄横带，视觉上像菜单项上的"横线"）。

@@ -125,9 +125,11 @@ Offset overlayAnchorOffset({
 
 /// A trigger-bound floating surface (popover / dropdown / hover card …).
 ///
-/// [trigger] is wrapped in a [CompositedTransformTarget]; the [content] is
-/// rendered in the nearest [Overlay] through a [CompositedTransformFollower]
-/// so it stays glued to the trigger while scrolling or resizing.
+/// [trigger] is wrapped in a [Listener] with a [GlobalKey] so its layout
+/// position can be measured; the [content] is rendered in the nearest
+/// [Overlay] at the absolute trigger position. Using [Positioned] (not
+/// [CompositedTransformFollower]) keeps hit-test geometry aligned with
+/// paint geometry.
 ///
 /// The surface closes when the user taps outside of it, presses Escape, or
 /// scrolls the mouse wheel over the trigger. [controller] may be supplied to
@@ -185,7 +187,6 @@ class AnchoredOverlay extends StatefulWidget {
 }
 
 class _AnchoredOverlayState extends State<AnchoredOverlay> {
-  final _link = LayerLink();
   final _anchorKey = GlobalKey();
   OverlayController? _internalController;
   late OverlayController _controller;
@@ -236,7 +237,6 @@ class _AnchoredOverlayState extends State<AnchoredOverlay> {
     final overlay = Overlay.of(context, rootOverlay: true);
     _entry = OverlayEntry(
       builder: (ctx) => _AnchoredSurface(
-        link: _link,
         anchorKey: _anchorKey,
         side: widget.side,
         align: widget.align,
@@ -260,21 +260,18 @@ class _AnchoredOverlayState extends State<AnchoredOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _link,
-      child: Listener(
-        key: _anchorKey,
-        behavior: HitTestBehavior.deferToChild,
-        onPointerDown: (_) {
-          if (widget.enabled && widget.toggleOnTap) _controller.toggle();
-        },
-        onPointerSignal: (event) {
-          if (event is PointerScrollEvent && widget.closeOnScroll) {
-            _controller.close();
-          }
-        },
-        child: widget.trigger,
-      ),
+    return Listener(
+      key: _anchorKey,
+      behavior: HitTestBehavior.deferToChild,
+      onPointerDown: (_) {
+        if (widget.enabled && widget.toggleOnTap) _controller.toggle();
+      },
+      onPointerSignal: (event) {
+        if (event is PointerScrollEvent && widget.closeOnScroll) {
+          _controller.close();
+        }
+      },
+      child: widget.trigger,
     );
   }
 
@@ -290,12 +287,13 @@ class _AnchoredOverlayState extends State<AnchoredOverlay> {
 
 /// The overlay-side counterpart of [_AnchoredOverlayState].
 ///
-/// Renders the surface through a [CompositedTransformFollower]; after the
-/// first layout pass it measures its own size and re-positions itself so
-/// `center` / `end` alignments are exact.
+/// Renders the surface at an absolute layout position computed from the
+/// trigger's global position. Using [Positioned] (rather than a
+/// [CompositedTransformFollower]) ensures hit-test geometry matches the
+/// painted geometry — clicks on the surface are delivered to the surface,
+/// not the barrier behind it.
 class _AnchoredSurface extends StatefulWidget {
   const _AnchoredSurface({
-    required this.link,
     required this.anchorKey,
     required this.side,
     required this.align,
@@ -304,7 +302,6 @@ class _AnchoredSurface extends StatefulWidget {
     required this.child,
   });
 
-  final LayerLink link;
   final GlobalKey anchorKey;
   final OverlaySide side;
   final OverlayAlign align;
@@ -318,7 +315,9 @@ class _AnchoredSurface extends StatefulWidget {
 
 class _AnchoredSurfaceState extends State<_AnchoredSurface> {
   Offset _clampedOffset = Offset.zero;
+  Offset _anchorTopLeft = Offset.zero;
   bool _measured = false;
+  final _contentKey = GlobalKey();
 
   @override
   void initState() {
@@ -326,16 +325,42 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _remeasure());
   }
 
+  @override
+  void didUpdateWidget(_AnchoredSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.child != widget.child) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _remeasure());
+    }
+  }
+
   void _remeasure() {
     if (!mounted) return;
     final anchorBox =
         widget.anchorKey.currentContext?.findRenderObject() as RenderBox?;
-    final childBox = context.findRenderObject() as RenderBox?;
+    final childBox =
+        _contentKey.currentContext?.findRenderObject() as RenderBox?;
     final overlayBox =
         Overlay.maybeOf(context)?.context.findRenderObject() as RenderBox?;
 
-    final anchorSize = anchorBox?.size ?? Size.zero;
+    if (anchorBox == null || overlayBox == null) return;
+
+    final anchorSize = anchorBox.size;
     final childSize = childBox?.size ?? Size.zero;
+
+    final anchorTopLeft =
+        anchorBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+    _anchorTopLeft = anchorTopLeft;
+
+    if (childSize == Size.zero) {
+      // First frame: content is not yet rendered (if (_measured) gate).
+      // Render it now, then remeasure on the next frame so its real size
+      // is known and the final position can be computed correctly.
+      setState(() {
+        _measured = true;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _remeasure());
+      return;
+    }
 
     var offset = overlayAnchorOffset(
       anchorSize: anchorSize,
@@ -346,19 +371,15 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
     );
 
     // Keep the surface inside the overlay viewport (edge clamping).
-    if (anchorBox != null && overlayBox != null && childSize != Size.zero) {
-      const margin = 8.0;
-      final anchorTopLeft =
-          anchorBox.localToGlobal(Offset.zero, ancestor: overlayBox);
-      final desired = anchorTopLeft + offset;
-      final maxX = overlayBox.size.width - childSize.width - margin;
-      final maxY = overlayBox.size.height - childSize.height - margin;
-      final clamped = Offset(
-        desired.dx.clamp(margin, maxX < margin ? margin : maxX),
-        desired.dy.clamp(margin, maxY < margin ? margin : maxY),
-      );
-      offset = clamped - anchorTopLeft;
-    }
+    const margin = 8.0;
+    final desired = anchorTopLeft + offset;
+    final maxX = overlayBox.size.width - childSize.width - margin;
+    final maxY = overlayBox.size.height - childSize.height - margin;
+    final clamped = Offset(
+      desired.dx.clamp(margin, maxX < margin ? margin : maxX),
+      desired.dy.clamp(margin, maxY < margin ? margin : maxY),
+    );
+    offset = clamped - anchorTopLeft;
 
     setState(() {
       _clampedOffset = offset;
@@ -368,33 +389,43 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
 
   @override
   Widget build(BuildContext context) {
+    final left = _anchorTopLeft.dx + _clampedOffset.dx;
+    final top = _anchorTopLeft.dy + _clampedOffset.dy;
+
     return Stack(
       children: [
         // Transparent barrier: any pointer-down outside the surface closes it.
         Positioned.fill(
           child: Listener(
             behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) => widget.onClose(),
+            onPointerDown: (event) {
+              // Compute visual rect of the content from known geometry.
+              final childBox =
+                  _contentKey.currentContext?.findRenderObject() as RenderBox?;
+              final contentSize = childBox?.size ?? Size.zero;
+              final rect = Rect.fromLTWH(left, top, contentSize.width, contentSize.height);
+              if (rect.contains(event.position)) return;
+              widget.onClose();
+            },
             child: const SizedBox.expand(),
           ),
         ),
-        // Hidden until the first measurement so the surface never flashes
-        // at the wrong position.
-        Opacity(
-          opacity: _measured ? 1 : 0,
-          child: CompositedTransformFollower(
-            link: widget.link,
-            showWhenUnlinked: false,
-            offset: _clampedOffset,
+        // Content at absolute layout position — hit testing matches painting.
+        if (_measured)
+          Positioned(
+            left: left,
+            top: top,
             child: FocusTrap(
               onEscape: widget.onClose,
               child: Material(
                 type: MaterialType.transparency,
-                child: widget.child,
+                child: Container(
+                  key: _contentKey,
+                  child: widget.child,
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
