@@ -7,7 +7,10 @@ import 'desktop_tokens.dart';
 import 'token_scope.dart';
 
 /// Edge of the anchor / viewport a floating surface attaches to.
-enum OverlaySide { top, right, bottom, left }
+///
+/// `auto` picks the direction with the most available space around the
+/// trigger, falling back to clamping at viewport edges.
+enum OverlaySide { top, right, bottom, left, auto }
 
 /// Alignment of a floating surface along the [OverlaySide] axis.
 enum OverlayAlign { start, center, end }
@@ -110,6 +113,7 @@ Offset overlayAnchorOffset({
       },
     OverlaySide.left => -childSize.width - gap,
     OverlaySide.right => anchorSize.width + gap,
+    OverlaySide.auto => 0.0,
   };
   final dy = switch (side) {
     OverlaySide.left || OverlaySide.right => switch (align) {
@@ -119,6 +123,7 @@ Offset overlayAnchorOffset({
       },
     OverlaySide.top => -childSize.height - gap,
     OverlaySide.bottom => anchorSize.height + gap,
+    OverlaySide.auto => 0.0,
   };
   return Offset(dx, dy);
 }
@@ -140,7 +145,7 @@ class AnchoredOverlay extends StatefulWidget {
     this.controller,
     required this.trigger,
     required this.content,
-    this.side = OverlaySide.bottom,
+    this.side = OverlaySide.auto,
     this.align = OverlayAlign.start,
     this.gap = 8,
     this.closeOnScroll = true,
@@ -351,22 +356,56 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
         anchorBox.localToGlobal(Offset.zero, ancestor: overlayBox);
     _anchorTopLeft = anchorTopLeft;
 
+    // If content isn't laid out yet (e.g. first frame), position it at
+    // the trigger temporarily — Offstage hides the paint so there's no
+    // visual flash. A second remeasure on the next frame will pick up
+    // the real size and finalize the position.
     if (childSize == Size.zero) {
-      // First frame: content is not yet rendered (if (_measured) gate).
-      // Render it now, then remeasure on the next frame so its real size
-      // is known and the final position can be computed correctly.
-      setState(() {
-        _measured = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _remeasure();
       });
-      WidgetsBinding.instance.addPostFrameCallback((_) => _remeasure());
       return;
+    }
+
+    // Resolve auto-direction: pick the side with the most available space.
+    OverlaySide side = widget.side;
+    OverlayAlign align = widget.align;
+
+    if (side == OverlaySide.auto) {
+      final spaceAbove = anchorTopLeft.dy;
+      final spaceBelow = overlayBox.size.height - anchorTopLeft.dy - anchorSize.height;
+      final spaceLeft = anchorTopLeft.dx;
+      final spaceRight = overlayBox.size.width - anchorTopLeft.dx - anchorSize.width;
+
+      // Score each direction by how much space is available, with a
+      // small preference for bottom/top (vertical) over left/right.
+      final scores = <OverlaySide, double>{
+        OverlaySide.top: spaceAbove - childSize.height,
+        OverlaySide.bottom: spaceBelow - childSize.height,
+        OverlaySide.left: spaceLeft - childSize.width,
+        OverlaySide.right: spaceRight - childSize.width,
+      };
+
+      // Pick the direction with the most remaining space.
+      side = scores.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+
+      // Auto alignment: for vertical sides, check horizontal overflow.
+      if (side == OverlaySide.top || side == OverlaySide.bottom) {
+        final fitsStart = anchorTopLeft.dx + childSize.width <= overlayBox.size.width - 8;
+        final fitsEnd = anchorTopLeft.dx + anchorSize.width - childSize.width >= 8;
+        if (align == OverlayAlign.start && !fitsStart && fitsEnd) {
+          align = OverlayAlign.end;
+        } else if (align == OverlayAlign.end && !fitsEnd && fitsStart) {
+          align = OverlayAlign.start;
+        }
+      }
     }
 
     var offset = overlayAnchorOffset(
       anchorSize: anchorSize,
       childSize: childSize,
-      side: widget.side,
-      align: widget.align,
+      side: side,
+      align: align,
       gap: widget.gap,
     );
 
@@ -395,26 +434,51 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
     return Stack(
       children: [
         // Transparent barrier: any pointer-down outside the surface closes it.
+        // Clicks on the trigger are excluded so the trigger's own toggle
+        // logic (onPointerDown) can handle opening / closing.
         Positioned.fill(
           child: Listener(
             behavior: HitTestBehavior.translucent,
             onPointerDown: (event) {
-              // Compute visual rect of the content from known geometry.
+              // 1. Inside content → stay open.
               final childBox =
                   _contentKey.currentContext?.findRenderObject() as RenderBox?;
               final contentSize = childBox?.size ?? Size.zero;
               final rect = Rect.fromLTWH(left, top, contentSize.width, contentSize.height);
               if (rect.contains(event.position)) return;
+
+              // 2. On the trigger → let the trigger's toggle() handle it.
+              final anchorBox =
+                  widget.anchorKey.currentContext?.findRenderObject() as RenderBox?;
+              if (anchorBox != null) {
+                final overlayBox =
+                    Overlay.maybeOf(context)?.context.findRenderObject() as RenderBox?;
+                if (overlayBox != null) {
+                  final triggerTopLeft =
+                      anchorBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+                  final triggerRect = Rect.fromLTWH(
+                    triggerTopLeft.dx,
+                    triggerTopLeft.dy,
+                    anchorBox.size.width,
+                    anchorBox.size.height,
+                  );
+                  if (triggerRect.contains(event.position)) return;
+                }
+              }
+
+              // 3. Anywhere else → close.
               widget.onClose();
             },
             child: const SizedBox.expand(),
           ),
         ),
-        // Content at absolute layout position — hit testing matches painting.
-        if (_measured)
-          Positioned(
-            left: left,
-            top: top,
+        // Content at absolute layout position — always in the layout tree
+        // for measurement, but hidden with Offstage until position is known.
+        Positioned(
+          left: left,
+          top: top,
+          child: Offstage(
+            offstage: !_measured,
             child: FocusTrap(
               onEscape: widget.onClose,
               child: Material(
@@ -426,6 +490,7 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
               ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -599,6 +664,7 @@ class _PositionedSurface extends StatelessWidget {
       OverlaySide.bottom => const Offset(0, 1),
       OverlaySide.left => const Offset(-1, 0),
       OverlaySide.right => const Offset(1, 0),
+      OverlaySide.auto => const Offset(0, 1),
     };
     if (side == null) {
       return Center(
@@ -613,6 +679,7 @@ class _PositionedSurface extends StatelessWidget {
       OverlaySide.bottom => Alignment.bottomCenter,
       OverlaySide.left => Alignment.centerLeft,
       OverlaySide.right => Alignment.centerRight,
+      OverlaySide.auto => Alignment.bottomCenter,
     };
     return Align(alignment: alignment, child: _FadeIn(slideFrom: slide, child: child));
   }

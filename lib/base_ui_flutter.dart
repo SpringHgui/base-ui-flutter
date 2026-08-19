@@ -103,7 +103,6 @@ export 'src/overlay/toast.dart';
 export 'src/overlay/direction.dart';
 export 'src/overlay/empty.dart';
 export 'src/overlay/check_row.dart';
-export 'src/overlay/filter_popover.dart';
 
 // ── Form controls ────────────────────────────────────────────────────────────
 export 'src/form/search_bar.dart';

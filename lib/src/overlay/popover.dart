@@ -14,7 +14,7 @@ class Popover extends StatelessWidget {
     this.controller,
     required this.trigger,
     required this.content,
-    this.side = OverlaySide.bottom,
+    this.side = OverlaySide.auto,
     this.align = OverlayAlign.start,
     this.gap = 8,
     this.width,

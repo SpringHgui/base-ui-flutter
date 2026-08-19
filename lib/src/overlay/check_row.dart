@@ -4,9 +4,9 @@ import '../common/check_box.dart';
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
 
-/// A single filter option displayed in a filter list.
-class FilterOption {
-  const FilterOption({
+/// A single option displayed in a check list.
+class CheckOption {
+  const CheckOption({
     required this.id,
     required this.label,
     this.leading,
@@ -26,7 +26,7 @@ class FilterOption {
 
 /// A compact row with a [CheckBox], optional leading widget, and a label.
 ///
-/// Used inside filter / selection lists. Token-driven, no hard-coded colors.
+/// Used inside selection / multi-option lists. Token-driven, no hard-coded colors.
 class CheckRow extends StatelessWidget {
   const CheckRow({
     super.key,
@@ -35,7 +35,7 @@ class CheckRow extends StatelessWidget {
     this.enabled = true,
   });
 
-  final FilterOption option;
+  final CheckOption option;
   final DesktopTokens? tokens;
   final bool enabled;
 
