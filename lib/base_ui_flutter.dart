@@ -48,6 +48,8 @@ export 'src/common/link_label.dart';
 export 'src/common/masked_text_box.dart';
 export 'src/common/numeric_up_down.dart';
 export 'src/common/domain_up_down.dart';
+export 'src/common/field_row.dart';
+export 'src/common/icon_button.dart';
 
 // ── Common — modern supplements ─────────────────────────────────────────────
 export 'src/common/surface.dart';

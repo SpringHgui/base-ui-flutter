@@ -19,6 +19,7 @@ class Input extends StatefulWidget {
     this.enabled = true,
     this.textInputAction,
     this.keyboardType,
+    this.obscureText = false,
   });
 
   /// Controls the text being edited.
@@ -48,6 +49,9 @@ class Input extends StatefulWidget {
 
   /// The type of keyboard to show for editing.
   final TextInputType? keyboardType;
+
+  /// Whether to hide the text (password field).
+  final bool obscureText;
 
   @override
   State<Input> createState() => _InputState();
@@ -112,6 +116,7 @@ class _InputState extends State<Input> {
           onSubmitted: widget.onSubmitted,
           textInputAction: widget.textInputAction,
           keyboardType: widget.keyboardType,
+          obscureText: widget.obscureText,
           cursorColor: t.primaryColor,
           textAlignVertical: TextAlignVertical.center,
           style: TextStyle(
