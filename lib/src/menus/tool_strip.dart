@@ -58,17 +58,20 @@ class ToolStripLabel extends ToolStripItem {
 }
 
 /// A button that shows a drop-down list when clicked.
+///
+/// [text] may be omitted for an icon-only drop-down button (the caret is
+/// hidden in that case).
 class ToolStripDropDownButton extends ToolStripItem {
   const ToolStripDropDownButton({
-    required this.text,
+    this.text,
     this.icon,
     required this.items,
     this.enabled = true,
     this.tooltip,
   });
 
-  /// Display text.
-  final String text;
+  /// Display text. May be `null` when only an [icon] is shown.
+  final String? text;
 
   /// Optional leading icon.
   final IconData? icon;
@@ -108,11 +111,30 @@ class ToolStrip extends StatefulWidget {
   const ToolStrip({
     super.key,
     required this.items,
+    this.trailingItems,
+    this.trailing,
+    this.borderOnTop = false,
+    this.openUpward = false,
     this.tokens,
   });
 
-  /// Toolbar entries.
+  /// Toolbar entries (left-aligned).
   final List<ToolStripItem> items;
+
+  /// Toolbar entries anchored to the right edge (after a spacer).
+  final List<ToolStripItem>? trailingItems;
+
+  /// Arbitrary widget anchored to the right edge, rendered before
+  /// [trailingItems] (e.g. a `Pagination`).
+  final Widget? trailing;
+
+  /// When `true` the hairline border is drawn on top instead of below —
+  /// for strips docked at the bottom of a region.
+  final bool borderOnTop;
+
+  /// When `true` drop-down overlays open above their button (for strips
+  /// docked at the bottom of the window).
+  final bool openUpward;
 
   /// Token override.
   final DesktopTokens? tokens;
@@ -135,12 +157,18 @@ class _ToolStripState extends State<ToolStrip> {
     final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
     final offset = renderBox.localToGlobal(Offset.zero);
+    final mediaSize = MediaQuery.of(context).size;
+    // 下拉面板 minWidth 140,靠右触发时夹取避免溢出屏幕右缘
+    final left = offset.dx.clamp(0.0, (mediaSize.width - 160).clamp(0.0, mediaSize.width));
 
     _overlayEntry = OverlayEntry(
       builder: (ctx) => _ToolStripDropDownOverlay(
         items: button.items,
-        position:
-            Offset(offset.dx, offset.dy + renderBox.size.height),
+        // 向上弹出时以"距屏幕底边距离"定位
+        position: widget.openUpward
+            ? Offset(left, mediaSize.height - offset.dy)
+            : Offset(left, offset.dy + renderBox.size.height),
+        openUpward: widget.openUpward,
         tokens: t,
         onDismiss: _dismissOverlay,
       ),
@@ -160,12 +188,20 @@ class _ToolStripState extends State<ToolStrip> {
         TokenScope.maybeOf(context) ??
         DesktopTokens.winForm;
 
+    final hasTrailing =
+        widget.trailing != null ||
+        (widget.trailingItems != null && widget.trailingItems!.isNotEmpty);
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: t.controlColor,
-        border: Border(
-          bottom: BorderSide(color: t.borderColor, width: t.borderWidth),
-        ),
+        border: widget.borderOnTop
+            ? Border(
+                top: BorderSide(color: t.borderColor, width: t.borderWidth),
+              )
+            : Border(
+                bottom: BorderSide(color: t.borderColor, width: t.borderWidth),
+              ),
       ),
       child: SizedBox(
         height: t.controlHeight + t.compactSpacing * 2,
@@ -173,24 +209,32 @@ class _ToolStripState extends State<ToolStrip> {
           padding: EdgeInsets.symmetric(
               horizontal: t.compactSpacing, vertical: t.compactSpacing),
           child: Row(
-            children: widget.items.map((item) {
-              return switch (item) {
-                ToolStripButton() =>
-                  _ToolStripButtonWidget(button: item, tokens: t),
-                ToolStripSeparator() => _ToolStripSeparatorWidget(tokens: t),
-                ToolStripLabel() =>
-                  _ToolStripLabelWidget(label: item, tokens: t),
-                ToolStripDropDownButton() => _ToolStripDropDownWidget(
-                    button: item,
-                    tokens: t,
-                    onOpen: (key) => _showDropDown(item, key, t),
-                  ),
-              };
-            }).toList(),
+            children: [
+              for (final item in widget.items) _buildItem(item, t),
+              if (hasTrailing) ...[
+                const Spacer(),
+                if (widget.trailing != null) widget.trailing!,
+                for (final item in widget.trailingItems ?? const <ToolStripItem>[])
+                  _buildItem(item, t),
+              ],
+            ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildItem(ToolStripItem item, DesktopTokens t) {
+    return switch (item) {
+      ToolStripButton() => _ToolStripButtonWidget(button: item, tokens: t),
+      ToolStripSeparator() => _ToolStripSeparatorWidget(tokens: t),
+      ToolStripLabel() => _ToolStripLabelWidget(label: item, tokens: t),
+      ToolStripDropDownButton() => _ToolStripDropDownWidget(
+          button: item,
+          tokens: t,
+          onOpen: (key) => _showDropDown(item, key, t),
+        ),
+    };
   }
 }
 
@@ -388,7 +432,7 @@ class _ToolStripDropDownWidgetState
             children: [
               if (b.icon != null)
                 Padding(
-                  padding: EdgeInsets.only(right: t.compactSpacing),
+                  padding: EdgeInsets.only(right: b.text != null ? t.compactSpacing : 0),
                   child: Icon(
                     b.icon,
                     size: t.fontSize + 2,
@@ -397,27 +441,29 @@ class _ToolStripDropDownWidgetState
                         : t.disabledForegroundColor,
                   ),
                 ),
-              Text(
-                b.text,
-                style: TextStyle(
-                  fontFamily: t.fontFamily,
-                  fontSize: t.fontSize,
-                  color: b.enabled
-                      ? t.foregroundColor
-                      : t.disabledForegroundColor,
-                  height: 1.0,
+              if (b.text != null)
+                Text(
+                  b.text!,
+                  style: TextStyle(
+                    fontFamily: t.fontFamily,
+                    fontSize: t.fontSize,
+                    color: b.enabled
+                        ? t.foregroundColor
+                        : t.disabledForegroundColor,
+                    height: 1.0,
+                  ),
                 ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(left: t.compactSpacing),
-                child: Icon(
-                  Icons.arrow_drop_down,
-                  size: t.fontSize + 2,
-                  color: b.enabled
-                      ? t.foregroundColor
-                      : t.disabledForegroundColor,
+              if (b.text != null)
+                Padding(
+                  padding: EdgeInsets.only(left: t.compactSpacing),
+                  child: Icon(
+                    Icons.arrow_drop_down,
+                    size: t.fontSize + 2,
+                    color: b.enabled
+                        ? t.foregroundColor
+                        : t.disabledForegroundColor,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -436,10 +482,15 @@ class _ToolStripDropDownOverlay extends StatelessWidget {
     required this.position,
     required this.tokens,
     required this.onDismiss,
+    this.openUpward = false,
   });
 
   final List<ToolStripDropDownEntry> items;
+
+  /// 向下弹出时为面板左上角全局坐标;向上弹出时 [Offset.dy] 表示
+  /// 面板底边距屏幕底边的距离。
   final Offset position;
+  final bool openUpward;
   final DesktopTokens tokens;
   final VoidCallback onDismiss;
 
@@ -447,19 +498,7 @@ class _ToolStripDropDownOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = tokens;
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: onDismiss,
-            child: const ColoredBox(color: Colors.transparent),
-          ),
-        ),
-        Positioned(
-          left: position.dx,
-          top: position.dy,
-          child: Material(
+    final panel = Material(
             elevation: 2,
             color: t.surfaceColor,
             child: Container(
@@ -489,7 +528,22 @@ class _ToolStripDropDownOverlay extends StatelessWidget {
                 ),
               ),
             ),
+    );
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: onDismiss,
+            child: const ColoredBox(color: Colors.transparent),
           ),
+        ),
+        Positioned(
+          left: position.dx,
+          top: openUpward ? null : position.dy,
+          bottom: openUpward ? position.dy : null,
+          child: panel,
         ),
       ],
     );

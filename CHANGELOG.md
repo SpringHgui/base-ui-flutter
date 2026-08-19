@@ -1,5 +1,17 @@
 ## Unreleased
 
+* `CheckRow` 新增 `trailing` 参数：行尾可渲染任意 widget（如状态标注），便于在选项列表中标示不可用/未实现的条目。
+
+* `ContextMenuStrip` 新增静态入口 `showContextMenu(context, items, position)`：无需包裹子树，可在右键时刻动态构建菜单内容后直接弹出（如表格单元格右键菜单，命中哪格决定了菜单作用于哪格）。同时菜单弹出位置增加屏幕边界夹取，右键在屏幕右/下缘时面板自动收回屏幕内，不再溢出不可见。
+
+* `ComboBox` 只读模式下拉重写：原实现基于 Flutter `DropdownButton`，弹出带 Material 淡入/滑动动画，不符合传统桌面习惯。现改为自绘 WinForm 风格即时展开下拉列表：`Listener.onPointerDown` 触发、`OverlayEntry` + `CompositedTransformFollower` 定位、无动画即时显示、hover 高亮、选中项主色填充、点击外部或选项后即时关闭。
+
+* `ToolStrip` 增强：新增 `trailing`（右侧任意 widget，如 `Pagination`）与 `trailingItems`（右侧条目）支持左右分区布局；新增 `borderOnTop`（分隔线画在顶部，适配底部停靠）与 `openUpward`（下拉面板向上弹出，适配底部工具栏，并夹取面板位置避免溢出屏幕右缘）。`ToolStripDropDownButton.text` 改为可选，支持纯图标下拉按钮（隐藏下拉箭头）。
+* `Pagination` 尺寸调整：页码/箭头按钮边长由 `controlHeight * 1.2` 改为 `controlHeight`，可直接嵌入 `ToolStrip` 等紧凑容器不溢出。
+
+* `ContextMenuStrip` / `MenuStrip` 关闭遮罩修复：遮罩原为 `GestureDetector(translucent, onTap, ColoredBox)`，但 `ColoredBox` 的渲染对象是 opaque 命中，遮罩子树命中测试返回 true 后 Stack 即停止向下探测——底部控件完全收不到事件，菜单打开时第一次点击只被用来关菜单（浪费一次点击，右键换菜单同样被吃掉）。现改为**无子节点的半透明 `Listener` + `onPointerDown`**：命中测试返回 false（事件穿透到底部控件），但自身仍在命中列表中（按下瞬间即关菜单）——同一次点击既关菜单又落在下方控件上，与原生桌面行为一致。
+* `ContextMenuStrip` 弹出位置修复：`PointerEvent.position` 本身就是全局坐标，旧代码又对它做了一次 `box.localToGlobal()` 转换，把触发控件自身的窗口偏移重复叠加，导致菜单向右下偏移。现直接传入 `event.position`，菜单精确出现在光标处。
+
 * `ListView` 行选中延迟修复：`onTap` 与 `onDoubleTap` 同注册会让单击被双击判定窗口 hold 约 300ms。选中改为 `Listener.onPointerDown`（按下瞬间触发、零延迟），双击激活单独由 `GestureDetector.onDoubleTap` 处理。
 
 * `MenuStrip` 显式关闭菜单项文字下划线并恢复常规字重:之前为优化首屏速度把下拉面板的 `Material` 替换为 `Container`,但 Text 不再有 Material 的 `DefaultTextStyle` 兜底,会继承应用级某个带 `decoration: underline / TextDecorationStyle.double / color: yellow` 且 `fontWeight: bold` 的样式,导致下拉菜单项文字下方出现两条黄线、字体加粗。已在 `_MenuTopItem` / `_MenuDropDownItem` 的 Text 显式 `decoration: TextDecoration.none` + `fontWeight: FontWeight.w400` 覆盖。

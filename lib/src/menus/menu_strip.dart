@@ -303,7 +303,7 @@ class _MenuDropDownState extends State<_MenuDropDown> {
 
     return Stack(
       children: [
-        // Transparent scrim to capture taps outside the menu.
+        // Transparent scrim to capture pointer-downs outside the menu.
         // IMPORTANT: the scrim must NOT cover the menu bar strip
         // (0 .. position.dy). If it did, the full-screen overlay would
         // intercept pointer events over the top items and their
@@ -311,15 +311,18 @@ class _MenuDropDownState extends State<_MenuDropDown> {
         // "hover another top item to switch the open menu" behavior.
         // So the scrim starts below the menu bar and only spans the
         // area under it.
+        // The scrim is a childless translucent Listener: its hit test
+        // returns false so widgets underneath keep the hit — the same
+        // click both dismisses the menu and lands on the widget below
+        // (no wasted "close-only" click).
         Positioned(
           left: 0,
           right: 0,
           top: widget.position.dy,
           bottom: 0,
-          child: GestureDetector(
+          child: Listener(
             behavior: HitTestBehavior.translucent,
-            onTap: widget.onDismiss,
-            child: const ColoredBox(color: Colors.transparent),
+            onPointerDown: (_) => widget.onDismiss(),
           ),
         ),
         // The actual drop-down.

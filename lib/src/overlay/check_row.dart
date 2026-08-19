@@ -33,11 +33,15 @@ class CheckRow extends StatelessWidget {
     required this.option,
     this.tokens,
     this.enabled = true,
+    this.trailing,
   });
 
   final CheckOption option;
   final DesktopTokens? tokens;
   final bool enabled;
+
+  /// Optional trailing widget (e.g. status tag) rendered at the end of the row.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -78,6 +82,10 @@ class CheckRow extends StatelessWidget {
                 ),
               ),
             ),
+            if (trailing != null) ...[
+              const SizedBox(width: 6),
+              trailing!,
+            ],
           ],
         ),
       ),

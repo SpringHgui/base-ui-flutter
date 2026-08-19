@@ -117,6 +117,7 @@ class _InputState extends State<Input> {
           textInputAction: widget.textInputAction,
           keyboardType: widget.keyboardType,
           obscureText: widget.obscureText,
+          cursorWidth: 1.0,
           cursorColor: t.primaryColor,
           textAlignVertical: TextAlignVertical.center,
           style: TextStyle(
@@ -139,7 +140,7 @@ class _InputState extends State<Input> {
             focusedBorder: InputBorder.none,
             disabledBorder: InputBorder.none,
             contentPadding:
-                EdgeInsets.symmetric(horizontal: t.controlPaddingX),
+                EdgeInsets.symmetric(horizontal: t.controlPaddingX, vertical: 8),
           ),
         ),
       ),

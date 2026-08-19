@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -72,17 +73,47 @@ class _ContextMenuStripState extends State<ContextMenuStrip> {
     return Listener(
       onPointerDown: (event) {
         if (event.buttons == kSecondaryMouseButton) {
-          // event.position is local to this Listener; the overlay needs
-          // global coordinates.
-          final box = context.findRenderObject() as RenderBox?;
-          show(box != null
-              ? box.localToGlobal(event.position)
-              : event.position);
+          // PointerEvent.position is already in global coordinates,
+          // which is exactly what the overlay expects.
+          show(event.position);
         }
       },
       child: widget.child,
     );
   }
+}
+
+/// Shows a one-off context menu at the global [position] without wrapping a
+/// widget in [ContextMenuStrip].
+///
+/// Useful when the menu content can only be decided at right-click time
+/// (e.g. a grid cell menu that depends on which cell was hit): build the
+/// [items] on demand, then call this with the pointer's global position.
+/// The menu dismisses itself when an entry is activated or the user clicks
+/// outside of it.
+void showContextMenu(
+  BuildContext context, {
+  required List<MenuModel> items,
+  required Offset position,
+  DesktopTokens? tokens,
+}) {
+  final overlay = Overlay.of(context);
+  final t = tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
+
+  late final OverlayEntry entry;
+  void dismiss() {
+    if (entry.mounted) entry.remove();
+  }
+
+  entry = OverlayEntry(
+    builder: (ctx) => _ContextMenuOverlay(
+      items: items,
+      position: position,
+      tokens: t,
+      onDismiss: dismiss,
+    ),
+  );
+  overlay.insert(entry);
 }
 
 // ---------------------------------------------------------------------------
@@ -115,20 +146,42 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
   @override
   Widget build(BuildContext context) {
     final t = widget.tokens;
-    final minWidth = 180.0;
+    const minWidth = 180.0;
+
+    // Clamp the menu inside the screen: right-clicking near the bottom / right
+    // edge would otherwise push the panel out of view.
+    final screen = MediaQuery.maybeOf(context)?.size;
+    var left = widget.position.dx;
+    var top = widget.position.dy;
+    if (screen != null) {
+      final entryCount = widget.items.whereType<MenuItem>().length;
+      final estimatedHeight =
+          entryCount * t.controlHeight + t.compactSpacing * 2 + t.borderWidth * 2;
+      const estimatedWidth = minWidth + 24;
+      if (top + estimatedHeight > screen.height) {
+        top = math.max(0, screen.height - estimatedHeight);
+      }
+      if (left + estimatedWidth > screen.width) {
+        left = math.max(0, screen.width - estimatedWidth);
+      }
+    }
 
     return Stack(
       children: [
+        // Dismiss barrier. A childless translucent Listener receives the
+        // pointer-down (closing the menu instantly) while its hit test
+        // returns false, so widgets underneath keep the hit — the same
+        // click both dismisses the menu and lands on the widget below
+        // (native desktop behavior, no wasted "close-only" click).
         Positioned.fill(
-          child: GestureDetector(
+          child: Listener(
             behavior: HitTestBehavior.translucent,
-            onTap: widget.onDismiss,
-            child: const ColoredBox(color: Colors.transparent),
+            onPointerDown: (_) => widget.onDismiss(),
           ),
         ),
         Positioned(
-          left: widget.position.dx,
-          top: widget.position.dy,
+          left: left,
+          top: top,
           child: MouseRegion(
             onEnter: (_) => widget.onHoverEnter?.call(),
             child: Material(

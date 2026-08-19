@@ -63,6 +63,12 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
   /// changes externally.
   late final TextEditingController _controller;
 
+  /// Whether the read-only drop-down is currently open.
+  bool _dropDownOpen = false;
+
+  /// Layer link used to position the drop-down popup below the control.
+  final LayerLink _layerLink = LayerLink();
+
   @override
   void initState() {
     super.initState();
@@ -95,6 +101,8 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
 
   @override
   void dispose() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     _focusNode.removeListener(_handleFocusChange);
     if (_ownsFocusNode) _focusNode.dispose();
     _controller.dispose();
@@ -126,56 +134,199 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
             ))
         .toList();
 
-    return SizedBox(
-      height: t.controlHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: fillColor,
-          border: Border.all(color: borderColor, width: t.borderWidth),
-          borderRadius: BorderRadius.circular(t.cornerRadius),
-        ),
-        child: widget.editable
-            ? _buildEditable(t, dropdownItems)
-            : _buildReadOnly(t, dropdownItems),
-      ),
-    );
-  }
-
-  Widget _buildReadOnly(
-      DesktopTokens t, List<DropdownMenuItem<T>> dropdownItems) {
-    // DropdownButton asserts that value exists exactly once in items.
-    // Fall back to null when the caller-supplied value is not present
-    // to avoid a hard crash in debug builds.
-    final effectiveValue =
-        widget.items.contains(widget.value) ? widget.value : null;
-
-    return DropdownButton<T>(
-      value: effectiveValue,
-      onChanged: widget.enabled ? widget.onChanged : null,
-      focusNode: _focusNode,
-      isExpanded: true,
-      isDense: true,
-      underline: const SizedBox.shrink(),
-      dropdownColor: t.surfaceColor,
-      style: TextStyle(
-        fontFamily: t.fontFamily,
-        fontSize: t.fontSize,
-        color:
-            widget.enabled ? t.foregroundColor : t.disabledForegroundColor,
-      ),
-      hint: widget.hint != null
-          ? Text(
-              widget.hint!,
-              style: TextStyle(
-                fontFamily: t.fontFamily,
-                fontSize: t.fontSize,
-                color: t.disabledForegroundColor,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _lastBoxWidth = constraints.maxWidth;
+        return CompositedTransformTarget(
+          link: _layerLink,
+          child: SizedBox(
+            height: t.controlHeight,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: fillColor,
+                border: Border.all(color: borderColor, width: t.borderWidth),
+                borderRadius: BorderRadius.circular(t.cornerRadius),
               ),
-            )
-          : null,
-      items: dropdownItems,
+              child: widget.editable
+                  ? _buildEditable(t, dropdownItems)
+                  : _buildReadOnly(t),
+            ),
+          ),
+        );
+      },
     );
   }
+
+  /// Read-only drop-down: custom WinForm-style, no Material animation.
+  /// Click instantly opens the item list; selecting or clicking outside closes.
+  Widget _buildReadOnly(DesktopTokens t) {
+    final displayText = widget.value != null
+        ? _itemString(widget.value as T)
+        : (widget.hint ?? '');
+    final isHint = widget.value == null && widget.hint != null;
+
+    return Listener(
+      onPointerDown: (_) {
+        if (!widget.enabled || widget.items.isEmpty) return;
+        _toggleDropDown(t);
+      },
+      child: MouseRegion(
+        cursor: widget.enabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: Row(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: t.controlPaddingX),
+                child: Text(
+                  displayText,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontFamily: t.fontFamily,
+                    fontSize: t.fontSize,
+                    color: isHint
+                        ? t.disabledForegroundColor
+                        : (widget.enabled
+                            ? t.foregroundColor
+                            : t.disabledForegroundColor),
+                    decoration: TextDecoration.none,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),
+            // Drop-down arrow button area
+            SizedBox(
+              width: 20,
+              child: Center(
+                child: Icon(
+                  Icons.arrow_drop_down,
+                  size: 18,
+                  color: widget.enabled
+                      ? t.foregroundColor
+                      : t.disabledForegroundColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggleDropDown(DesktopTokens t) {
+    if (_dropDownOpen) {
+      _closeDropDown();
+    } else {
+      _openDropDown(t);
+    }
+  }
+
+  void _openDropDown(DesktopTokens t) {
+    setState(() => _dropDownOpen = true);
+    // Use overlay: insert an OverlayEntry so the popup floats above siblings.
+    _overlayEntry = _buildOverlayEntry(t);
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _closeDropDown() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    if (mounted) setState(() => _dropDownOpen = false);
+  }
+
+  OverlayEntry? _overlayEntry;
+
+  OverlayEntry _buildOverlayEntry(DesktopTokens t) {
+    final selectedIndex = widget.items.indexOf(widget.value as T);
+    final itemHeight = t.controlHeight;
+    final maxItems = widget.items.length;
+    final visibleItems = maxItems > 10 ? 10 : maxItems;
+    final panelHeight = visibleItems * itemHeight;
+
+    return OverlayEntry(
+      builder: (context) {
+        return Stack(
+          children: [
+            // Full-screen dismiss barrier (translucent, no child → pass-through)
+            Positioned.fill(
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (_) => _closeDropDown(),
+              ),
+            ),
+            // The actual drop-down panel
+            CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: Offset(0, t.controlHeight),
+              child: Container(
+                width: _lastBoxWidth,
+                constraints: BoxConstraints(maxHeight: panelHeight.toDouble()),
+                decoration: BoxDecoration(
+                  color: t.surfaceColor,
+                  border: Border.all(color: t.borderColor, width: t.borderWidth),
+                ),
+                child: ListView.builder(
+                  physics: widget.items.length <= 10
+                      ? const NeverScrollableScrollPhysics()
+                      : null,
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  itemCount: widget.items.length,
+                  itemExtent: itemHeight,
+                  itemBuilder: (context, index) {
+                    final item = widget.items[index];
+                    final isSelected = index == selectedIndex;
+                    final isHovered = _hoverIndex == index;
+                    return MouseRegion(
+                      onEnter: (_) => setState(() => _hoverIndex = index),
+                      onExit: (_) => setState(() {
+                        if (_hoverIndex == index) _hoverIndex = -1;
+                      }),
+                      child: Listener(
+                        onPointerDown: (_) {
+                          widget.onChanged?.call(item);
+                          _closeDropDown();
+                        },
+                        child: Container(
+                          color: isSelected
+                              ? t.primaryColor
+                              : (isHovered ? t.controlHoverColor : null),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: t.controlPaddingX),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            _itemString(item),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontFamily: t.fontFamily,
+                              fontSize: t.fontSize,
+                              color: isSelected
+                                  ? t.accentForegroundColor
+                                  : t.foregroundColor,
+                              decoration: TextDecoration.none,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  int _hoverIndex = -1;
+  double _lastBoxWidth = 200;
 
   Widget _buildEditable(
       DesktopTokens t, List<DropdownMenuItem<T>> dropdownItems) {

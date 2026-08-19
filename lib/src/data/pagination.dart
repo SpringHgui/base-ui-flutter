@@ -59,7 +59,8 @@ class Pagination extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
-    final side = t.controlHeight * 1.2;
+    // 按钮边长与控件标准高度一致,便于嵌入 ToolStrip 等紧凑容器
+    final side = t.controlHeight;
 
     Widget arrowButton(IconData icon, int? target, {String? label}) {
       final enabled = target != null && target >= 0 && target < pageCount;
