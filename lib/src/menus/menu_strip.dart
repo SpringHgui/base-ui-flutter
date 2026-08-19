@@ -156,7 +156,10 @@ class _MenuStripState extends State<MenuStrip> {
         child: Listener(
           behavior: HitTestBehavior.opaque,
           onPointerHover: (event) => _onBarHover(event.position.dx),
+          // stretch:让每个顶层菜单项的背景填满整行高度,
+          // 避免 hover 高亮只包住文字形成一条窄带(看起来像菜单项上的"横线")
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: List.generate(widget.items.length, (i) {
               final key = _keyFor(i);
               final item = widget.items[i];
@@ -255,6 +258,9 @@ class _MenuTopItemState extends State<_MenuTopItem> {
               fontSize: t.fontSize,
               color: t.foregroundColor,
               height: 1.0,
+              decoration: TextDecoration.none,
+              // 显式常规字重:防止继承应用级 DefaultTextStyle 的 bold
+              fontWeight: FontWeight.w400,
             ),
           ),
         ),
@@ -290,8 +296,6 @@ class _MenuDropDown extends StatefulWidget {
 }
 
 class _MenuDropDownState extends State<_MenuDropDown> {
-  final LayerLink _link = LayerLink();
-
   @override
   Widget build(BuildContext context) {
     final t = widget.tokens;
@@ -319,32 +323,28 @@ class _MenuDropDownState extends State<_MenuDropDown> {
           ),
         ),
         // The actual drop-down.
+        // 不用 Material(elevation):阴影的首次计算 / shader 编译是"首次展开慢、
+        // 之后快"的主要来源,且 WinForm 菜单本来就是扁平的。用纯 Container。
         Positioned(
           left: widget.position.dx,
           top: widget.position.dy,
-          child: CompositedTransformTarget(
-            link: _link,
-            child: MouseRegion(
-              onEnter: (_) => widget.onHoverEnter?.call(),
-              child: Material(
-                elevation: 2,
+          child: MouseRegion(
+            onEnter: (_) => widget.onHoverEnter?.call(),
+            child: Container(
+              constraints: BoxConstraints(minWidth: minWidth),
+              padding: EdgeInsets.symmetric(vertical: t.compactSpacing),
+              decoration: BoxDecoration(
                 color: t.surfaceColor,
-                child: Container(
-                  constraints: BoxConstraints(minWidth: minWidth),
-                  padding: EdgeInsets.symmetric(vertical: t.compactSpacing),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                        color: t.borderColor, width: t.borderWidth),
-                  ),
-                  child: IntrinsicWidth(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: widget.items
-                          .map((m) => _buildEntry(m, t, 0))
-                          .toList(),
-                    ),
-                  ),
+                border: Border.all(
+                    color: t.borderColor, width: t.borderWidth),
+              ),
+              child: IntrinsicWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: widget.items
+                      .map((m) => _buildEntry(m, t, 0))
+                      .toList(),
                 ),
               ),
             ),
@@ -485,6 +485,11 @@ class _MenuDropDownItemState extends State<_MenuDropDownItem> {
                             ? t.foregroundColor
                             : t.disabledForegroundColor),
                     height: 1.0,
+                    // 显式关闭下划线 / 常规字重:去掉 Material 后 Text 不再有
+                    // Material 的 DefaultTextStyle 兜底,会继承应用级某个带
+                    // decoration: underline / double / yellow 或 bold 的样式
+                    decoration: TextDecoration.none,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ),
@@ -492,16 +497,18 @@ class _MenuDropDownItemState extends State<_MenuDropDownItem> {
                 Padding(
                   padding: EdgeInsets.only(left: t.controlPaddingX * 3),
                   child: Text(
-                    widget.item.shortcut!,
-                    style: TextStyle(
-                      fontFamily: t.fontFamily,
-                      fontSize: t.fontSize,
-                      color: _hovered
-                          ? t.surfaceColor
-                          : t.disabledForegroundColor,
-                      height: 1.0,
-                    ),
+                  widget.item.shortcut!,
+                  style: TextStyle(
+                    fontFamily: t.fontFamily,
+                    fontSize: t.fontSize,
+                    color: _hovered
+                        ? t.surfaceColor
+                        : t.disabledForegroundColor,
+                    height: 1.0,
+                    decoration: TextDecoration.none,
+                    fontWeight: FontWeight.w400,
                   ),
+                ),
                 ),
               if (hasSub)
                 Padding(
