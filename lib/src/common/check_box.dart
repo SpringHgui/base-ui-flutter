@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
@@ -7,6 +8,9 @@ import '../foundation/token_scope.dart';
 ///
 /// Renders a square indicator with a label. All visual values are driven by
 /// [DesktopTokens]; no color or spacing is hard-coded.
+///
+/// The indicator is hand-drawn (no [Checkbox] animation): checked state
+/// switches instantly, matching the snappy WinForms feel.
 class CheckBox extends StatelessWidget {
   const CheckBox({
     super.key,
@@ -41,59 +45,82 @@ class CheckBox extends StatelessWidget {
   /// Whether the check box is interactive. When `false`, renders disabled.
   final bool enabled;
 
+  void _toggle() {
+    onChanged?.call(!value);
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || !enabled) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.space) {
+      _toggle();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
-    final handler = enabled ? onChanged : null;
+    final interactive = enabled && onChanged != null;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: t.controlHeight,
-          height: t.controlHeight,
-          child: Checkbox(
-            value: value,
-            onChanged: handler,
-            focusNode: focusNode,
-            autofocus: autofocus,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            fillColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.disabled)) {
-                return t.controlDisabledColor;
-              }
-              if (states.contains(WidgetState.selected)) {
-                return t.primaryColor;
-              }
-              return t.surfaceColor;
-            }),
-            checkColor: t.surfaceColor,
-            side: BorderSide(
-              color: t.borderColor,
-              width: t.borderWidth,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(t.cornerRadius),
-            ),
-          ),
+    // 传统 WinForms 勾选框:小尺寸、无填充色,仅边框 + 勾号
+    final boxSize = t.controlHeight * 0.5;
+    final boxBorderColor =
+        enabled ? t.foregroundColor : t.disabledForegroundColor;
+
+    final indicator = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: interactive ? _toggle : null,
+      child: Container(
+        width: boxSize,
+        height: boxSize,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          border: Border.all(color: boxBorderColor, width: 1),
+          borderRadius: BorderRadius.circular(2),
         ),
-        if (label != null) ...[
-          const SizedBox(width: 4),
-          GestureDetector(
-            onTap: handler != null ? () => handler(!value) : null,
-            child: Text(
-              label!,
-              style: TextStyle(
-                fontFamily: t.fontFamily,
-                fontSize: t.fontSize,
-                color:
-                    enabled ? t.foregroundColor : t.disabledForegroundColor,
+        child: value
+            ? Icon(
+                Icons.check,
+                size: boxSize * 0.8,
+                color: t.foregroundColor,
+              )
+            : null,
+      ),
+    );
+
+    return Focus(
+      focusNode: focusNode,
+      autofocus: autofocus,
+      onKeyEvent: interactive ? _handleKeyEvent : null,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          indicator,
+          if (label != null) ...[
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: interactive ? _toggle : null,
+              child: Text(
+                label!,
+                style: TextStyle(
+                  fontFamily: t.fontFamily,
+                  fontSize: t.fontSize,
+                  color: enabled
+                      ? t.foregroundColor
+                      : t.disabledForegroundColor,
+                ),
               ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

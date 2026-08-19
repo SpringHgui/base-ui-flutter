@@ -146,12 +146,13 @@ class _MenuStripState extends State<MenuStrip> {
       child: SizedBox(
         height: t.controlHeight,
         // A bar-level [Listener] with [HitTestBehavior.opaque] reliably
-        // catches pointer-hover anywhere over the menu strip — including
-        // the very first hover before any menu has been opened. Hovering
-        // an item opens it (and hovering another while one is open
-        // switches to it). This is more robust than relying on per-item
-        // [MouseRegion.onEnter], which can fail to fire on the initial
-        // hover when nothing is open yet.
+        // catches pointer-hover over the menu strip. It only *switches*
+        // the open menu to the hovered item (_onBarHover early-returns
+        // when nothing is open), so a plain hover never opens a menu on
+        // its own — the bar must be opened by a click first. This is more
+        // robust than relying on per-item [MouseRegion.onEnter], whose
+        // onEnter can fail to fire on the initial hover when nothing is
+        // open yet.
         child: Listener(
           behavior: HitTestBehavior.opaque,
           onPointerHover: (event) => _onBarHover(event.position.dx),
@@ -181,10 +182,14 @@ class _MenuStripState extends State<MenuStrip> {
     );
   }
 
-  /// Opens the top-level item under the given global x-coordinate.
-  /// Drives hover-to-open / hover-to-switch. No-op when the pointer is not
-  /// over any item or when that item is already open.
+  /// Switches the open top-level menu to the item under the given global
+  /// x-coordinate. This only runs **after a menu has been opened** (by a
+  /// click) — hover never opens a menu on its own. This matches WinForm
+  /// desktop behavior: click to open, then hover to switch between menus.
+  /// No-op when nothing is open, or when the pointer isn't over an item,
+  /// or when that item is already the open one.
   void _onBarHover(double globalDx) {
+    if (_openIndex == -1) return; // 未打开任何菜单时,悬停不自动展开
     int? hit;
     for (int i = 0; i < widget.items.length; i++) {
       final rb =

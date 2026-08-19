@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
@@ -26,7 +27,13 @@ enum ButtonVariant {
 /// Provide either [text] (a plain label) or [child] (arbitrary content such
 /// as an icon + caption column). When both are given, [child] is shown and
 /// [text] is kept only as a semantic label.
-class Button extends StatelessWidget {
+///
+/// Focus behavior (WinForms convention):
+/// - 按下(pointer down)只显示 pressed 视觉,**不获取焦点**;
+/// - **完整点击**(按下 + 松开都在按钮内)才 `requestFocus`,显示焦点边框;
+/// - 长按后移走鼠标(tap 取消)不会获取焦点;
+/// - Tab 键导航聚焦后同样显示焦点边框。
+class Button extends StatefulWidget {
   const Button({
     super.key,
     this.text,
@@ -59,93 +66,140 @@ class Button extends StatelessWidget {
   /// Visual style of the button. Defaults to [ButtonVariant.solid].
   final ButtonVariant variant;
 
-  /// Focus node for keyboard navigation.
+  /// Focus node for keyboard navigation. When null, the button owns one.
   final FocusNode? focusNode;
 
   /// Whether the button should focus itself when first built.
   final bool autofocus;
 
   @override
+  State<Button> createState() => _ButtonState();
+}
+
+/// [Button] 的 State:管理 hover / pressed / focus 状态。
+///
+/// 不使用 `TextButton`(其 InkWell `canRequestFocus` 会在按下瞬间请求焦点,
+/// 导致"长按移走鼠标"也显示焦点边框),改为
+/// `GestureDetector + MouseRegion + Focus` 手绘,聚焦时机完全可控。
+class _ButtonState extends State<Button> {
+  late final FocusNode _focusNode;
+  late final bool _ownsFocusNode;
+
+  bool _hover = false;
+  bool _pressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsFocusNode = widget.focusNode == null;
+    _focusNode = widget.focusNode ?? FocusNode();
+  }
+
+  @override
+  void dispose() {
+    if (_ownsFocusNode) {
+      _focusNode.dispose();
+    }
+    super.dispose();
+  }
+
+  /// 完整点击(松开)才触发:请求焦点 + 调用用户回调。
+  void _handlePressed() {
+    _focusNode.requestFocus();
+    widget.onPressed?.call();
+  }
+
+  /// 键盘激活(焦点在按钮上按 Enter / Space)。
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || widget.onPressed == null) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.space) {
+      _handlePressed();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final t = tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
+    final t =
+        widget.tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
+    final disabled = widget.onPressed == null;
+    final ghost = widget.variant == ButtonVariant.ghost;
 
-    final content = child ?? Text(text ?? '');
+    // 背景:ghost 透明 + 悬停/按下混合;solid 实色
+    final Color bg;
+    if (ghost) {
+      bg = _pressed
+          ? Color.alphaBlend(t.pressedOverlayColor, t.controlColor)
+          : _hover
+              ? Color.alphaBlend(t.hoverOverlayColor, t.controlColor)
+              : Colors.transparent;
+    } else {
+      bg = disabled
+          ? t.controlDisabledColor
+          : _pressed
+              ? t.controlPressedColor
+              : _hover
+                  ? t.controlHoverColor
+                  : t.controlColor;
+    }
 
-    final backgroundColor = WidgetStateProperty.resolveWith((states) {
-      if (variant == ButtonVariant.ghost) {
-        if (states.contains(WidgetState.disabled)) {
-          return Colors.transparent;
-        }
-        if (states.contains(WidgetState.pressed)) {
-          // Subtle pressed tint blended over the surrounding surface.
-          return Color.alphaBlend(t.pressedOverlayColor, t.controlColor);
-        }
-        if (states.contains(WidgetState.hovered)) {
-          // Subtle hover tint blended over the surrounding surface.
-          return Color.alphaBlend(t.hoverOverlayColor, t.controlColor);
-        }
-        return Colors.transparent;
-      }
-      if (states.contains(WidgetState.disabled)) {
-        return t.controlDisabledColor;
-      }
-      if (states.contains(WidgetState.pressed)) {
-        return t.controlPressedColor;
-      }
-      if (states.contains(WidgetState.hovered)) {
-        return t.controlHoverColor;
-      }
-      return t.controlColor;
-    });
+    // 边框:ghost 无边框;solid 聚焦时用高亮色
+    final Border? border;
+    if (ghost) {
+      border = null;
+    } else {
+      border = Border.all(
+        color: _focusNode.hasFocus ? t.primaryColor : t.borderColor,
+        width: t.borderWidth,
+      );
+    }
 
-    final side = variant == ButtonVariant.ghost
-        ? const WidgetStatePropertyAll(BorderSide.none)
-        : WidgetStateProperty.resolveWith(
-            (states) => BorderSide(
-              color: states.contains(WidgetState.focused)
-                  ? t.primaryColor
-                  : t.borderColor,
-              width: t.borderWidth,
+    final content = widget.child ?? Text(widget.text ?? '');
+
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: widget.autofocus,
+      onKeyEvent: _handleKeyEvent,
+      child: MouseRegion(
+        onEnter: disabled ? null : (_) => setState(() => _hover = true),
+        onExit: disabled ? null : (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: disabled
+              ? null
+              : (_) => setState(() => _pressed = true),
+          onTapUp: disabled ? null : (_) => setState(() => _pressed = false),
+          onTapCancel: () => setState(() => _pressed = false),
+          onTap: disabled ? null : _handlePressed,
+          child: Container(
+            // 最小高度 = controlHeight,不强制固定高度:child(如图标+文字列)
+            // 更高时按钮自然撑高,避免溢出
+            constraints: BoxConstraints(minHeight: t.controlHeight),
+            padding: EdgeInsets.symmetric(horizontal: t.controlPaddingX),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: bg,
+              border: border,
+              borderRadius: BorderRadius.circular(t.cornerRadius),
             ),
-          );
-
-    final style = ButtonStyle(
-      backgroundColor: backgroundColor,
-      foregroundColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.disabled)
-            ? t.disabledForegroundColor
-            : t.foregroundColor,
-      ),
-      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-      splashFactory: NoSplash.splashFactory,
-      elevation: const WidgetStatePropertyAll(0.0),
-      mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.basic),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      minimumSize: WidgetStatePropertyAll(Size(0, t.controlHeight)),
-      padding: WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: t.controlPaddingX),
-      ),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(t.cornerRadius),
+            child: DefaultTextStyle(
+              style: TextStyle(
+                fontFamily: t.fontFamily,
+                fontSize: t.fontSize,
+                color: disabled ? t.disabledForegroundColor : t.foregroundColor,
+                height: 1.0,
+              ),
+              child: content,
+            ),
+          ),
         ),
       ),
-      side: side,
-      textStyle: WidgetStatePropertyAll(
-        TextStyle(
-          fontFamily: t.fontFamily,
-          fontSize: t.fontSize,
-          height: 1.0,
-        ),
-      ),
-    );
-
-    return TextButton(
-      style: style,
-      onPressed: onPressed,
-      focusNode: focusNode,
-      autofocus: autofocus,
-      child: content,
     );
   }
 }
