@@ -21,6 +21,7 @@ const Map<String, String> jaTranslations = {
   'cat.supplements': '補完コンポーネント',
   'cat.containers': 'コンテナ',
   'cat.overlay': 'オーバーレイ',
+  'cat.form': 'フォーム',
 
 
   // ── Label page ──

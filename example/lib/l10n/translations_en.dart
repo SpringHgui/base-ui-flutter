@@ -21,6 +21,7 @@ const Map<String, String> enTranslations = {
   'cat.supplements': 'Supplements',
   'cat.containers': 'Containers',
   'cat.overlay': 'Overlay',
+  'cat.form': 'Form',
 
 
   // ── Label page ──

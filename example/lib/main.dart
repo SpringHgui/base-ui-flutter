@@ -15,6 +15,9 @@ import 'pages/link_label_page.dart';
 import 'pages/masked_text_box_page.dart';
 import 'pages/numeric_up_down_page.dart';
 import 'pages/domain_up_down_page.dart';
+import 'pages/field_row_page.dart';
+import 'pages/icon_btn_page.dart';
+import 'pages/surface_page.dart';
 
 // Lists
 import 'pages/list_box_page.dart';
@@ -86,6 +89,10 @@ import 'pages/command_page.dart';
 import 'pages/toast_page.dart';
 import 'pages/direction_page.dart';
 import 'pages/empty_page.dart';
+import 'pages/check_row_page.dart';
+
+// Form
+import 'pages/search_input_page.dart';
 
 // Data
 import 'pages/chart_page.dart';
@@ -182,6 +189,9 @@ final List<_PageEntry> _componentPages = [
   _PageEntry('cat.common', 'MaskedTextBox', '$_pagesDir/masked_text_box_page.dart', (context) => const MaskedTextBoxPage()),
   _PageEntry('cat.common', 'NumericUpDown', '$_pagesDir/numeric_up_down_page.dart', (context) => const NumericUpDownPage()),
   _PageEntry('cat.common', 'DomainUpDown', '$_pagesDir/domain_up_down_page.dart', (context) => const DomainUpDownPage()),
+  _PageEntry('cat.common', 'FieldRow', '$_pagesDir/field_row_page.dart', (context) => const FieldRowPage()),
+  _PageEntry('cat.common', 'IconBtn', '$_pagesDir/icon_btn_page.dart', (context) => const IconBtnPage()),
+  _PageEntry('cat.supplements', 'Surface', '$_pagesDir/surface_page.dart', (context) => const SurfacePage()),
   // Lists & Data
   _PageEntry('cat.lists', 'ListBox', '$_pagesDir/list_box_page.dart', (context) => const ListBoxPage()),
   _PageEntry('cat.lists', 'CheckedListBox', '$_pagesDir/checked_list_box_page.dart', (context) => const CheckedListBoxPage()),
@@ -244,6 +254,9 @@ final List<_PageEntry> _componentPages = [
   _PageEntry('cat.overlay', 'Toast', '$_pagesDir/toast_page.dart', (context) => const ToastPage()),
   _PageEntry('cat.overlay', 'Direction', '$_pagesDir/direction_page.dart', (context) => const DirectionPage()),
   _PageEntry('cat.overlay', 'Empty', '$_pagesDir/empty_page.dart', (context) => const EmptyPage()),
+  _PageEntry('cat.overlay', 'CheckRow', '$_pagesDir/check_row_page.dart', (context) => const CheckRowPage()),
+  // Form
+  _PageEntry('cat.form', 'SearchInput', '$_pagesDir/search_input_page.dart', (context) => const SearchInputPage()),
   // Data
   _PageEntry('cat.data', 'Chart', '$_pagesDir/chart_page.dart', (context) => const ChartPage()),
   _PageEntry('cat.data', 'Pagination', '$_pagesDir/pagination_page.dart', (context) => const PaginationPage()),

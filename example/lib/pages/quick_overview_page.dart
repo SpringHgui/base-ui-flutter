@@ -224,6 +224,51 @@ class _QuickOverviewPageState extends State<QuickOverviewPage> {
           ),
         )),
       ),
+      _Demo(
+        'FieldRow',
+        _box(240, 100, SizedBox(
+          width: 220,
+          child: Column(children: [
+            FieldRow(label: 'Host:', child: Input(hint: 'localhost')),
+            const SizedBox(height: 6),
+            FieldRow(label: 'Port:', child: Input(hint: '3306')),
+          ]),
+        )),
+      ),
+      _Demo(
+        'IconBtn',
+        _box(180, 36, Row(mainAxisSize: MainAxisSize.min, children: [
+          IconBtn(icon: Icons.add, onTap: () {}),
+          IconBtn(icon: Icons.save, onTap: () {}),
+          IconBtn(icon: Icons.delete, onTap: () {}),
+          IconBtn(icon: Icons.edit, onTap: () {}),
+        ])),
+      ),
+      _Demo(
+        'Surface',
+        _box(180, 40, Surface(
+          color: const Color(0xFFE0E0E0),
+          borderColor: const Color(0xFFB0B0B0),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          onTap: () {},
+          child: const Label('Hover / press me'),
+        )),
+      ),
+      _Demo(
+        'SearchInput',
+        _box(200, 36, SizedBox(width: 180, child: SearchInput(hintText: 'Search...'))),
+      ),
+      _Demo(
+        'CheckRow',
+        _box(200, 90, SizedBox(
+          width: 180,
+          child: Column(children: [
+            CheckRow(option: CheckOption(id: 'a', label: 'MySQL', selected: true, onToggle: () {})),
+            CheckRow(option: CheckOption(id: 'b', label: 'PostgreSQL', selected: false, onToggle: () {})),
+            CheckRow(option: CheckOption(id: 'c', label: 'SQLite', selected: true, onToggle: () {})),
+          ]),
+        )),
+      ),
     ];
 
     return ScrollableControl(

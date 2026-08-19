@@ -21,6 +21,7 @@ const Map<String, String> zhTranslations = {
   'cat.supplements': '补充组件',
   'cat.containers': '容器',
   'cat.overlay': '浮层',
+  'cat.form': '表单',
 
 
   // ── Label page ──
