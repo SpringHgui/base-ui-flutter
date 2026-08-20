@@ -1,5 +1,13 @@
 ## Unreleased
 
+* `ToolStripButton` / `ToolStripDropDownButton` 新增可选 `iconColor` 参数,支持为工具条按钮图标指定语义强调色(如新建=绿、删除=红),默认仍使用 `DesktopTokens.foregroundColor`。
+* `ToolStrip` 下拉面板移除 `Material(elevation)` 与冗余双重边框,改为纯 `Container` 扁平 WinForm 风格,避免首次展开阴影 shader 编译延迟。
+* `ToolStripDropDownButton` 支持分离式(split)按钮:新增可选 `onPressed`,赋值时按钮主体(图标+文字)点击触发 `onPressed`,右侧独立箭头点击才打开下拉菜单,主体与箭头之间用细分隔线隔开;不赋值时行为与旧版一致(整钮打开下拉)。
+* `ToolStripButton` / `ToolStripDropDownButton` 按钮体优化:内容容器由「仅水平 `compactSpacing` 且无固定高度」改为撑满 `controlHeight` 高度(垂直居中)并水平方向给到 `compactSpacing * 2` 内边距,hover/按下高亮带不再贴着文字、图标文字不再紧贴,整条观感更舒展。split 模式的下拉箭头容器同步撑满 `controlHeight`。
+* 修复 `ToolStrip` 下拉菜单项文本继承应用级 `DefaultTextStyle` 的 `decoration: double/yellow` + `fontWeight: bold` 样式(去掉 `Material` 兜底后触发):`_ToolStripDropDownEntryWidget` 的文本显式声明 `decoration: TextDecoration.none` + `fontWeight: FontWeight.w400`,消除菜单项黄色双下划线与加粗。
+* 优化 `ToolStripDropDownButton` 分离式(split)按钮的渲染:原先主体与下拉箭头是两颗独立 pill(各自 hover 背景 + 圆角),悬浮时整体观感"变宽"且中间分割线被同色 hover 底色淹没而不可见。现改为整颗做成"统一的一颗按钮"——悬浮时整体一个 hover 背景,主体与箭头之间用一条常驻 1px 占位(非悬浮时为透明)、仅悬浮时才着色的细分隔线隔开,既消除悬浮变宽、又让分割线在统一底色上清晰可见。
+* 修复 split 按钮分割线在明亮主题下不可见:分割线颜色由固定 `borderColor`(亮色下与 hover 底色几乎同色)改为基于 hover 底色 `Color.alphaBlend` 的明暗自适应(暗底提亮叠白、亮底加深叠黑),符合项目"hover/选中色必须明暗自适应"规范,两套主题下均可见。
+
 * `CheckRow` 新增 `trailing` 参数：行尾可渲染任意 widget（如状态标注），便于在选项列表中标示不可用/未实现的条目。
 
 * `ContextMenuStrip` 新增静态入口 `showContextMenu(context, items, position)`：无需包裹子树，可在右键时刻动态构建菜单内容后直接弹出（如表格单元格右键菜单，命中哪格决定了菜单作用于哪格）。同时菜单弹出位置增加屏幕边界夹取，右键在屏幕右/下缘时面板自动收回屏幕内，不再溢出不可见。
