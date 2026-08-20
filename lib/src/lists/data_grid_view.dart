@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:collection';
 
-import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
+import 'package:flutter/gestures.dart' show kPrimaryMouseButton, kSecondaryMouseButton;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
@@ -101,6 +103,7 @@ class DataGridView extends StatefulWidget {
     this.rowNumberBuilder,
     this.selectedCell,
     this.onCellSelected,
+    this.onCellTap,
     this.onCellDoubleTap,
     this.onCellContext,
     this.headerColor,
@@ -110,6 +113,13 @@ class DataGridView extends StatefulWidget {
     this.headerFontSize,
     this.rowHoverColor,
     this.zebra = false,
+    this.verticalScrollController,
+    this.columnWidths,
+    this.onColumnResize,
+    this.minColumnWidth = 40,
+    this.selectedCells,
+    this.onCellsSelected,
+    this.anchorCell,
   });
 
   /// Column definitions.
@@ -166,6 +176,11 @@ class DataGridView extends StatefulWidget {
   /// Called when a cell is selected (pointer-down, zero latency).
   final void Function(int row, int col)? onCellSelected;
 
+  /// Called when a cell is single-clicked (left-button pointer-down, zero
+  /// latency). Distinct from [onCellSelected] so callers can attach an
+  /// "enter edit" action without conflating it with mere selection.
+  final void Function(int row, int col)? onCellTap;
+
   /// Called when a cell is double-clicked.
   final void Function(int row, int col)? onCellDoubleTap;
 
@@ -197,6 +212,36 @@ class DataGridView extends StatefulWidget {
   /// Whether odd rows get a faint zebra tint (WinForms list-style grids).
   final bool zebra;
 
+  /// Optional external scroll controller for the vertical ListView.
+  /// When provided, the caller can attach a ScrollBar or synchronise
+  /// scrolling with other widgets.
+  final ScrollController? verticalScrollController;
+
+  /// Explicit pixel widths for every column (length must equal
+  /// [columns].length). When provided, takes precedence over each
+  /// column's [DataGridViewColumn.width] / [DataGridViewColumn.flex].
+  final List<double>? columnWidths;
+
+  /// Fired while the user drags a column border in the header.
+  /// [columnIndex] is the column being resized; [newWidth] is the
+  /// proposed width (already clamped to [minColumnWidth]).
+  final void Function(int columnIndex, double newWidth)? onColumnResize;
+
+  /// Minimum column width in logical pixels when resizing.
+  final double minColumnWidth;
+
+  /// Set of currently selected cells for multi-selection.
+  /// When non-null, takes precedence over [selectedCell] for visual rendering.
+  final Set<(int, int)>? selectedCells;
+
+  /// Called when the cell selection changes (click, Ctrl+click,
+  /// Shift+click, or drag selection). Receives the full new selection set.
+  final ValueChanged<Set<(int, int)>>? onCellsSelected;
+
+  /// The anchor cell for Shift+click range selection.
+  /// Typically the last singly-clicked cell.
+  final (int, int)? anchorCell;
+
   @override
   State<DataGridView> createState() => _DataGridViewState();
 }
@@ -204,6 +249,17 @@ class DataGridView extends StatefulWidget {
 class _DataGridViewState extends State<DataGridView> {
   late final FocusNode _focusNode;
   late final bool _ownsFocusNode;
+
+  // ── 拖拽多选状态 ──
+  bool _isDragging = false;
+  (int, int)? _dragStartCell;
+  (int, int)? _dragCurrentCell;
+
+  // ── 拖拽自动滚动 ──
+  Timer? _autoScrollTimer;
+  double _autoScrollPointerY = 0;
+  static const double _autoScrollEdgeSize = 30.0;
+  static const double _autoScrollSpeed = 12.0;
 
   @override
   void initState() {
@@ -224,6 +280,7 @@ class _DataGridViewState extends State<DataGridView> {
 
   @override
   void dispose() {
+    _stopAutoScroll();
     widget.dirtyTracker?.removeListener(_onDirty);
     if (_ownsFocusNode) _focusNode.dispose();
     super.dispose();
@@ -238,6 +295,72 @@ class _DataGridViewState extends State<DataGridView> {
     final t =
         widget.tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
     final rh = widget.rowHeight ?? t.controlHeight;
+    final multiSelect = widget.onCellsSelected != null;
+
+    Widget listArea = ListView.builder(
+      controller: widget.verticalScrollController,
+      itemCount: widget.rowCount,
+      itemExtent: rh,
+      padding: EdgeInsets.zero,
+      itemBuilder: (context, row) => _buildRow(t, row, rh),
+    );
+
+    // 多选模式:包裹 Listener 跟踪拖拽选择
+    if (multiSelect) {
+      listArea = Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (event) {
+          if (event.buttons != kPrimaryMouseButton) return;
+          final row = _rowAtY(event.localPosition.dy, rh);
+          if (row == null || row >= widget.rowCount) return;
+          final col = _colAtX(event.localPosition);
+          if (col == null) return;
+          _dragStartCell = (row, col);
+          _dragCurrentCell = (row, col);
+          _isDragging = false; // 尚未移动,不算拖拽
+        },
+        onPointerMove: (event) {
+          if (_dragStartCell == null) return;
+          _autoScrollPointerY = event.localPosition.dy;
+          final row = _rowAtY(event.localPosition.dy, rh);
+          if (row == null) return;
+          final col = _colAtX(event.localPosition);
+          if (col == null) return;
+          final newCell = (row, col);
+          if (!_isDragging && newCell != _dragStartCell) {
+            _isDragging = true;
+          }
+          if (_isDragging && newCell != _dragCurrentCell) {
+            _dragCurrentCell = newCell;
+            _updateDragSelection();
+          }
+          // 边缘检测:靠近顶部/底部时启动自动滚动
+          final size = context.size;
+          if (size != null && _isDragging) {
+            final h = size.height;
+            if (_autoScrollPointerY < _autoScrollEdgeSize ||
+                _autoScrollPointerY > h - _autoScrollEdgeSize) {
+              _startAutoScroll();
+            } else {
+              _stopAutoScroll();
+            }
+          }
+        },
+        onPointerUp: (event) {
+          _dragStartCell = null;
+          _dragCurrentCell = null;
+          _isDragging = false;
+          _stopAutoScroll();
+        },
+        onPointerCancel: (event) {
+          _dragStartCell = null;
+          _dragCurrentCell = null;
+          _isDragging = false;
+          _stopAutoScroll();
+        },
+        child: listArea,
+      );
+    }
 
     return Focus(
       focusNode: _focusNode,
@@ -251,19 +374,113 @@ class _DataGridViewState extends State<DataGridView> {
         child: Column(
           children: [
             if (widget.showHeader) _buildHeader(t),
-            Expanded(
-              child: ListView.builder(
-                itemCount: widget.rowCount,
-                itemExtent: rh,
-                padding: EdgeInsets.zero,
-                itemBuilder: (context, row) =>
-                    _buildRow(t, row, rh),
-              ),
-            ),
+            Expanded(child: listArea),
           ],
         ),
       ),
     );
+  }
+
+  // ── 拖拽多选辅助 ─────────────────────────────────────────
+
+  int? _rowAtY(double localY, double rh) {
+    if (localY < 0) return null;
+    final row = localY ~/ rh;
+    if (row >= widget.rowCount) return widget.rowCount - 1;
+    return row;
+  }
+
+  int? _colAtX(Offset localPos) {
+    final widths = widget.columnWidths;
+    final cols = widget.columns;
+    double x = localPos.dx;
+    // 跳过行号列
+    if (widget.showRowNumbers) {
+      x -= widget.rowNumberWidth;
+    }
+    if (x < 0) return null;
+    double offset = 0;
+    for (var i = 0; i < cols.length; i++) {
+      final cw = widths != null ? widths[i] : (cols[i].width ?? 0);
+      if (cw == 0) continue;
+      offset += cw;
+      if (x <= offset) return i;
+    }
+    return cols.length - 1;
+  }
+
+  void _updateDragSelection() {
+    final start = _dragStartCell;
+    final current = _dragCurrentCell;
+    if (start == null || current == null) return;
+    final minRow = start.$1 < current.$1 ? start.$1 : current.$1;
+    final maxRow = start.$1 > current.$1 ? start.$1 : current.$1;
+    final minCol = start.$2 < current.$2 ? start.$2 : current.$2;
+    final maxCol = start.$2 > current.$2 ? start.$2 : current.$2;
+    final cells = <(int, int)>{};
+    for (var r = minRow; r <= maxRow; r++) {
+      for (var c = minCol; c <= maxCol; c++) {
+        cells.add((r, c));
+      }
+    }
+    widget.onCellsSelected?.call(cells);
+  }
+
+  // ── 自动滚动 ─────────────────────────────────────────
+
+  void _startAutoScroll() {
+    if (_autoScrollTimer != null) return;
+    _autoScrollTimer = Timer.periodic(
+      const Duration(milliseconds: 16),
+      (_) => _performAutoScroll(),
+    );
+  }
+
+  void _stopAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
+  }
+
+  void _performAutoScroll() {
+    final controller = widget.verticalScrollController;
+    if (controller == null || !controller.hasClients) {
+      _stopAutoScroll();
+      return;
+    }
+    final size = context.size;
+    if (size == null) return;
+    final h = size.height;
+    final rh = widget.rowHeight ?? 26.0;
+
+    double delta = 0;
+    if (_autoScrollPointerY < _autoScrollEdgeSize) {
+      final ratio = 1.0 - _autoScrollPointerY / _autoScrollEdgeSize;
+      delta = -_autoScrollSpeed * ratio;
+    } else if (_autoScrollPointerY > h - _autoScrollEdgeSize) {
+      final ratio =
+          (_autoScrollPointerY - (h - _autoScrollEdgeSize)) / _autoScrollEdgeSize;
+      delta = _autoScrollSpeed * ratio;
+    }
+    if (delta == 0) return;
+
+    final maxScroll = controller.position.maxScrollExtent;
+    final newOffset = (controller.offset + delta).clamp(0.0, maxScroll);
+    if (newOffset == controller.offset) return;
+    controller.jumpTo(newOffset);
+
+    // 根据滚动后的新可见区域更新拖拽选中的行
+    if (_dragStartCell != null) {
+      final localY = _autoScrollPointerY;
+      final row = _rowAtY(localY, rh);
+      if (row != null) {
+        final col = _dragCurrentCell?.$2 ?? _dragStartCell!.$2;
+        final newCell = (row, col);
+        if (_dragCurrentCell != newCell) {
+          _dragCurrentCell = newCell;
+          _updateDragSelection();
+        }
+      }
+    }
   }
 
   // -- Header ---------------------------------------------------------------
@@ -292,10 +509,11 @@ class _DataGridViewState extends State<DataGridView> {
                 ),
               ),
             ),
-          for (final col in widget.columns)
+          for (var i = 0; i < widget.columns.length; i++)
             _buildHeaderCell(
               t,
-              col,
+              i,
+              widget.columns[i],
               lineColor,
             ),
         ],
@@ -303,10 +521,20 @@ class _DataGridViewState extends State<DataGridView> {
     );
   }
 
-  Widget _buildHeaderCell(DesktopTokens t, DataGridViewColumn col, Color lineColor) {
+  Widget _buildHeaderCell(
+    DesktopTokens t,
+    int columnIndex,
+    DataGridViewColumn col,
+    Color lineColor,
+  ) {
+    final widths = widget.columnWidths;
+    final w = widths != null ? widths[columnIndex] : col.width;
+
     Widget cell = Container(
       height: widget.rowHeight ?? t.controlHeight,
-      padding: EdgeInsets.symmetric(horizontal: widget.cellPaddingX ?? t.controlPaddingX),
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.cellPaddingX ?? t.controlPaddingX,
+      ),
       alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         border: Border(
@@ -327,10 +555,46 @@ class _DataGridViewState extends State<DataGridView> {
         maxLines: 1,
       ),
     );
-    if (col.width != null) {
-      return SizedBox(width: col.width, child: cell);
+
+    Widget sized;
+    if (w != null) {
+      sized = SizedBox(width: w, child: cell);
+    } else {
+      sized = Expanded(flex: col.flex, child: cell);
     }
-    return Expanded(flex: col.flex, child: cell);
+
+    // 列头拖拽调整宽度:最后一列无需 resize handle
+    final onResize = widget.onColumnResize;
+    if (onResize == null ||
+        columnIndex >= (widths?.length ?? widget.columns.length) - 1) {
+      return sized;
+    }
+
+    return Stack(
+      children: [
+        sized,
+        Positioned(
+          right: -3,
+          top: 0,
+          bottom: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeColumn,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragUpdate: (details) {
+                final currentWidth =
+                    widget.columnWidths?[columnIndex] ?? col.width;
+                if (currentWidth == null) return;
+                final newWidth = (currentWidth + details.delta.dx)
+                    .clamp(widget.minColumnWidth, double.infinity);
+                onResize(columnIndex, newWidth);
+              },
+              child: const SizedBox(width: 6),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   // -- Data row -------------------------------------------------------------
@@ -344,9 +608,14 @@ class _DataGridViewState extends State<DataGridView> {
       cellBuilder: widget.cellBuilder,
       isSelected: widget.selectedRow == row,
       selectedCell: widget.selectedCell,
+      selectedCells: widget.selectedCells,
+      anchorCell: widget.anchorCell,
+      isDragging: _isDragging,
+      onCellsSelected: widget.onCellsSelected,
       enabled: widget.enabled,
       onRowSelected: widget.onRowSelected,
       onCellSelected: widget.onCellSelected,
+      onCellTap: widget.onCellTap,
       onCellDoubleTap: widget.onCellDoubleTap,
       onCellContext: widget.onCellContext,
       showRowNumbers: widget.showRowNumbers,
@@ -359,6 +628,7 @@ class _DataGridViewState extends State<DataGridView> {
       hoverColor: widget.rowHoverColor ??
           Color.alphaBlend(t.hoverOverlayColor, t.surfaceColor),
       zebra: widget.zebra,
+      columnWidths: widget.columnWidths,
     );
   }
 }
@@ -375,9 +645,14 @@ class _DataGridRow extends StatefulWidget {
     required this.cellBuilder,
     required this.isSelected,
     required this.selectedCell,
+    this.selectedCells,
+    this.anchorCell,
+    this.isDragging = false,
+    this.onCellsSelected,
     required this.onRowSelected,
     required this.onCellSelected,
     required this.enabled,
+    this.onCellTap,
     this.onCellDoubleTap,
     this.onCellContext,
     this.showRowNumbers = false,
@@ -388,6 +663,7 @@ class _DataGridRow extends StatefulWidget {
     required this.cellPaddingX,
     required this.hoverColor,
     required this.zebra,
+    this.columnWidths,
   });
 
   final DesktopTokens t;
@@ -397,8 +673,13 @@ class _DataGridRow extends StatefulWidget {
   final Widget Function(int row, int col) cellBuilder;
   final bool isSelected;
   final (int, int)? selectedCell;
+  final Set<(int, int)>? selectedCells;
+  final (int, int)? anchorCell;
+  final bool isDragging;
+  final ValueChanged<Set<(int, int)>>? onCellsSelected;
   final ValueChanged<int>? onRowSelected;
   final void Function(int row, int col)? onCellSelected;
+  final void Function(int row, int col)? onCellTap;
   final void Function(int row, int col)? onCellDoubleTap;
   final void Function(int row, int col, Offset position)? onCellContext;
   final bool enabled;
@@ -410,6 +691,7 @@ class _DataGridRow extends StatefulWidget {
   final double cellPaddingX;
   final Color hoverColor;
   final bool zebra;
+  final List<double>? columnWidths;
 
   @override
   State<_DataGridRow> createState() => _DataGridRowState();
@@ -482,9 +764,13 @@ class _DataGridRowState extends State<_DataGridRow> {
   Widget _buildCell(int col) {
     final w = widget;
     final column = w.columns[col];
-    final cellSelected = w.selectedCell != null &&
-        w.selectedCell!.$1 == w.row &&
-        w.selectedCell!.$2 == col;
+    final multiSelect = w.onCellsSelected != null;
+    // 多选模式:从 selectedCells 集合判断;否则回退单选 selectedCell
+    final cellSelected = multiSelect
+        ? (w.selectedCells?.contains((w.row, col)) ?? false)
+        : (w.selectedCell != null &&
+            w.selectedCell!.$1 == w.row &&
+            w.selectedCell!.$2 == col);
     // 单元格选中时文字反白,否则跟随行文字色
     final fg = cellSelected
         ? w.selectedTextColor
@@ -494,16 +780,48 @@ class _DataGridRowState extends State<_DataGridRow> {
 
     Widget cell = Listener(
       behavior: HitTestBehavior.opaque,
-      // 左键:按下瞬间选中该单元格(零延迟);右键:选中并弹出单元格菜单
       onPointerDown: w.enabled
           ? (event) {
-              w.onCellSelected?.call(w.row, col);
-              // 未提供单元格选中时回退到整行选中(向后兼容)
-              if (w.onCellSelected == null) {
-                w.onRowSelected?.call(w.row);
-              }
+              // 拖拽进行中,跳过单元格选中逻辑(由 DataGridView 层统一处理)
+              if (w.isDragging) return;
               if (event.buttons == kSecondaryMouseButton) {
                 w.onCellContext?.call(w.row, col, event.position);
+                return;
+              }
+              if (multiSelect) {
+                final ctrl = HardwareKeyboard.instance.isControlPressed;
+                final shift = HardwareKeyboard.instance.isShiftPressed;
+                final current = w.selectedCells ?? <(int, int)>{};
+                final cell = (w.row, col);
+                Set<(int, int)> newSel;
+                if (shift) {
+                  // Shift+click: 从锚点到当前单元格矩形范围选择
+                  final anchor = w.anchorCell ?? cell;
+                  final minR = anchor.$1 < cell.$1 ? anchor.$1 : cell.$1;
+                  final maxR = anchor.$1 > cell.$1 ? anchor.$1 : cell.$1;
+                  final minC = anchor.$2 < cell.$2 ? anchor.$2 : cell.$2;
+                  final maxC = anchor.$2 > cell.$2 ? anchor.$2 : cell.$2;
+                  newSel = <(int, int)>{};
+                  for (var r = minR; r <= maxR; r++) {
+                    for (var c = minC; c <= maxC; c++) {
+                      newSel.add((r, c));
+                    }
+                  }
+                } else if (ctrl) {
+                  // Ctrl+click: 切换单个单元格
+                  newSel = Set<(int, int)>.from(current);
+                  if (!newSel.remove(cell)) newSel.add(cell);
+                } else {
+                  // 普通点击: 仅选中该单元格
+                  newSel = {cell};
+                }
+                w.onCellsSelected?.call(newSel);
+              } else {
+                w.onCellSelected?.call(w.row, col);
+                if (w.onCellSelected == null) {
+                  w.onRowSelected?.call(w.row);
+                }
+                w.onCellTap?.call(w.row, col);
               }
             }
           : null,
@@ -533,8 +851,10 @@ class _DataGridRowState extends State<_DataGridRow> {
     if (column.alignment != Alignment.centerLeft) {
       cell = Align(alignment: column.alignment, child: cell);
     }
-    if (column.width != null) {
-      return SizedBox(width: column.width, child: cell);
+    final widths = w.columnWidths;
+    final cw = widths != null ? widths[col] : column.width;
+    if (cw != null) {
+      return SizedBox(width: cw, child: cell);
     }
     return Expanded(flex: column.flex, child: cell);
   }

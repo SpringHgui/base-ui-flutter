@@ -19,6 +19,7 @@ class ScrollBar extends StatelessWidget {
     this.orientation = ScrollBarOrientation.vertical,
     this.tokens,
     this.thumbThickness,
+    this.thumbVisibility = false,
   });
 
   /// The scroll controller of the scrollable child.
@@ -36,6 +37,10 @@ class ScrollBar extends StatelessWidget {
   /// Override for the thumb thickness. Defaults to a token-derived value.
   final double? thumbThickness;
 
+  /// Whether the scrollbar thumb is always visible.
+  /// Defaults to `false` (thumb appears only during scrolling).
+  final bool thumbVisibility;
+
   @override
   Widget build(BuildContext context) {
     final t = tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
@@ -50,7 +55,7 @@ class ScrollBar extends StatelessWidget {
       child: Scrollbar(
         controller: controller,
         thickness: thickness,
-        thumbVisibility: false,
+        thumbVisibility: thumbVisibility,
         child: child,
       ),
     );

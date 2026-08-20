@@ -69,6 +69,9 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
   /// Layer link used to position the drop-down popup below the control.
   final LayerLink _layerLink = LayerLink();
 
+  /// Key on the combo box surface, used to measure its width for the popup.
+  final GlobalKey _boxKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -137,26 +140,26 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
         )
         .toList();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        _lastBoxWidth = constraints.maxWidth;
-        return CompositedTransformTarget(
-          link: _layerLink,
-          child: SizedBox(
-            height: t.controlHeight,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: fillColor,
-                border: Border.all(color: borderColor, width: t.borderWidth),
-                borderRadius: BorderRadius.circular(t.cornerRadius),
-              ),
-              child: widget.editable
-                  ? _buildEditable(t, dropdownItems)
-                  : _buildReadOnly(t),
-            ),
+    // No LayoutBuilder: it conflicts with IntrinsicHeight when the combo box
+    // is embedded inside a DialogBox ("LayoutBuilder does not support
+    // returning intrinsic dimensions"). The popup width is measured on
+    // demand via [_boxWidth] instead (popups only open after layout).
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: SizedBox(
+        key: _boxKey,
+        height: t.controlHeight,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: fillColor,
+            border: Border.all(color: borderColor, width: t.borderWidth),
+            borderRadius: BorderRadius.circular(t.cornerRadius),
           ),
-        );
-      },
+          child: widget.editable
+              ? _buildEditable(t, dropdownItems)
+              : _buildReadOnly(t),
+        ),
+      ),
     );
   }
 
@@ -266,7 +269,7 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
               showWhenUnlinked: false,
               offset: Offset(0, t.controlHeight),
               child: Container(
-                width: _lastBoxWidth,
+                width: _boxWidth(),
                 constraints: BoxConstraints(maxHeight: panelHeight.toDouble()),
                 decoration: BoxDecoration(
                   color: t.surfaceColor,
@@ -333,7 +336,19 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
   }
 
   int _hoverIndex = -1;
+
+  /// Cached combo box width; refreshed from the render tree by [_boxWidth].
   double _lastBoxWidth = 200;
+
+  /// Width of the combo box surface, measured on demand from the render
+  /// tree (drop-downs only open after layout, so the box is always sized).
+  double _boxWidth() {
+    final box = _boxKey.currentContext?.findRenderObject();
+    if (box is RenderBox && box.hasSize) {
+      _lastBoxWidth = box.size.width;
+    }
+    return _lastBoxWidth;
+  }
 
   Widget _buildEditable(
     DesktopTokens t,
@@ -359,7 +374,7 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
         return Align(
           alignment: Alignment.topLeft,
           child: Container(
-            width: _lastBoxWidth,
+            width: _boxWidth(),
             constraints: const BoxConstraints(maxHeight: 200),
             decoration: BoxDecoration(
               color: t.surfaceColor,

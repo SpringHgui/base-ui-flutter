@@ -1,13 +1,15 @@
 ## Unreleased
 
+* `TabControl` 重绘为经典 WinForms 样式:控件色(control)标签条 + 底部发丝线;选中标签用 surface 底色、比未选中高 2px 且下探 1px 压住发丝线，与下方带边框的页面面板无缝连成一体(面板不画顶边，顶边由标签条底线 + 选中标签覆盖);未选中标签融入条底色，hover 由条底色派生(明暗自适应)。标签外形改自绘 `_TabChrome`(圆角顶 + 三边描边)，文本恢复常规字重，移除 accent 下划线。**移除 `showUnderline` 参数**(WinForms 无下划线语义);纯标签条场景(所有 `TabItem.child` 为 null)不再渲染页面面板与底线，仅保留标签条。
+* 修复 `ComboBox` 嵌入 `DialogBox` 时崩溃：内部 `LayoutBuilder` 与 `DialogBox` 的 `IntrinsicHeight` 冲突（"LayoutBuilder does not support returning intrinsic dimensions"，如 db_lite 新建连接 SQL Server 表单）。改为 `GlobalKey` 按需测量实际渲染宽度（下拉面板只在布局完成后才会打开，测量安全），顺带修复无界宽度约束下弹层宽度变为无穷大的隐患。
 * 新增 `ToolbarButton`（menus）：独立可用的工具栏按钮（图标 + 文本 / 仅图标），自绘 hover / pressed / 禁用态，支持 `iconColor` 功能强调色、`showCaret` 下拉箭头、`outlined` 边框触发器样式、`textMaxWidth` 窄条省略，无 Material 水波纹与点击动画。区别于数据模型 `ToolStripButton`，可挂在任意布局中。
 * `IconBtn` 重写为自绘实现（不再委托 `Button`）：新增 `child`（任意内容，如 `CustomPaint` 图标）、`selected` / `selectedColor`（accent 淡底选中态）、`outline`（边框）、`size`（固定命中区）参数，保留原 API 兼容；含 Focus + Enter/Space 键盘激活。
 * 新增 `ListItem`（lists）：高密度列表行（前置图标 + 标题 + 尾随），`selectedColor` 支持浅底选中（文字保持前景色，树形场景），选中由 `Listener.onPointerDown` 零延迟触发，双击单独挂 `GestureDetector`。
 * 新增 `SelectableCard`（common）：可选卡片（内容 + 选中淡底 + 右上对勾圆标），禁用时整体降透明并显示 `disabledLabel` 角标，`PointerDown` 选中 + 双击动作。
 * 新增 `ExpandableSearch`（form）：可展开搜索框（收起为放大镜按钮 → 展开输入框），失焦且内容为空自动收起。
-* 新增 `InlineEditor`（form）：单元格内联编辑器（自动聚焦，Enter / 失焦提交，Esc 取消，防双触发）。
+* 新增 `InlineEditor`（form）：单元格内联编辑器（自动聚焦，Enter / 失焦提交，Esc 取消，防双触发）；新增 `onChanged` 回调，每次文本变化时触发（可用于实时标记 dirty）。
 * `TabControl` 增强：`TabItem` 新增 `onClose`（悬浮显示关闭按钮）/ `width`（固定宽度）/ `contextMenuItems`（逐标签右键菜单）；`TabControl` 新增 `tabBarColor` / `selectedTabColor` / `hoverTabColor` / `showUnderline`（可关） / `barHeight` / `tabWidth` / `scrollStep`，标签溢出时两侧滚动箭头，选中下划线去掉 `AnimatedContainer` 动画。
-* `DataGridView` 增强：新增 `showRowNumbers` / `rowNumberWidth` / `rowNumberBuilder`（行号列，按下选中整行）、`selectedCell` / `onCellSelected` / `onCellDoubleTap` / `onCellContext`（单元格选中 / 双击 / 右键，选中由 `Listener.onPointerDown` 零延迟触发）、`headerColor` / `gridLineColor` / `selectedTextColor` / `cellPaddingX` / `headerFontSize` / `rowHoverColor`（行 hover 自持，避免整页重建）。
+* `DataGridView` 增强：新增 `showRowNumbers` / `rowNumberWidth` / `rowNumberBuilder`（行号列，按下选中整行）、`selectedCell` / `onCellSelected` / `onCellTap` / `onCellDoubleTap` / `onCellContext`（单元格选中 / 单击 / 双击 / 右键，选中与单击由 `Listener.onPointerDown` 零延迟触发）、`headerColor` / `gridLineColor` / `selectedTextColor` / `cellPaddingX` / `headerFontSize` / `rowHoverColor`（行 hover 自持，避免整页重建）。
 * `ListItem` 新增 `borderRadius` 参数（默认 `cornerRadius` 圆角，可传 `BorderRadius.zero` 用于高密度直角列表 / 对象面板）。
 * `TabControl` 新增 `contentPadding` 参数（可关掉默认 8px 内容内边距，适配纯标签条场景，如 db_lite 对象视图标签栏）。
 * `SelectableCard` 覆盖层（选中淡底 / 对勾圆标 / 禁用角标）由 `Stack` 改为 `CustomPaint` 自绘：Stack 在无界约束下无法布局（如 `DialogBox` 的 `IntrinsicHeight` 尺寸计算会崩溃），自绘让组件在任意约束下正常渲染，且不引入额外渲染层级。

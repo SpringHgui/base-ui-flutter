@@ -14,6 +14,7 @@ class InlineEditor extends StatefulWidget {
     super.key,
     required this.initialValue,
     required this.onCommit,
+    this.onChanged,
     this.onCancel,
     this.height,
     this.tokens,
@@ -24,6 +25,9 @@ class InlineEditor extends StatefulWidget {
 
   /// 提交回调(Enter / 失焦)。
   final ValueChanged<String> onCommit;
+
+  /// 每次文本变化时回调(可用于实时标记 dirty 等)。
+  final ValueChanged<String>? onChanged;
 
   /// 取消回调(Esc)。
   final VoidCallback? onCancel;
@@ -52,14 +56,20 @@ class _InlineEditorState extends State<InlineEditor> {
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_onTextChanged);
     // 构建完成后主动聚焦输入框,直接进入可输入状态
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
     });
   }
 
+  void _onTextChanged() {
+    widget.onChanged?.call(_controller.text);
+  }
+
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _focusNode.dispose();
     _controller.dispose();
     super.dispose();
