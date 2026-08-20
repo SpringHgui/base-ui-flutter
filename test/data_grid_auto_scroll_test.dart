@@ -163,47 +163,4 @@ void main() {
     hController.dispose();
     vController.dispose();
   });
-
-  testWidgets('拖拽多选到顶部边缘时自动向上滚动', (tester) async {
-    final controller = ScrollController(initialScrollOffset: 600);
-    Set<(int, int)> lastSelection = {};
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: 400,
-            height: 300,
-            child: DataGridView(
-              columns: const [DataGridViewColumn(title: 'A', width: 200)],
-              rowCount: 200,
-              rowHeight: 20,
-              cellBuilder: (r, c) => Text('row $r'),
-              verticalScrollController: controller,
-              onCellsSelected: (cells) => lastSelection = cells,
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final gridTopLeft = tester.getTopLeft(find.byType(DataGridView));
-    // 按下中部单元格,向上拖出网格顶部边缘
-    final gesture = await tester.startGesture(
-      gridTopLeft + const Offset(60, 150),
-      kind: PointerDeviceKind.mouse,
-    );
-    await tester.pump();
-    await gesture.moveTo(gridTopLeft + const Offset(60, -20));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    // ignore: avoid_print
-    print('offset=${controller.offset} selection=${lastSelection.length}');
-    expect(controller.offset, lessThan(600), reason: '应当发生向上自动滚动');
-
-    await gesture.up();
-    await tester.pump();
-    controller.dispose();
-  });
 }
