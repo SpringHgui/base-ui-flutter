@@ -21,6 +21,9 @@ class Textarea extends StatefulWidget {
     this.minLines = 3,
     this.maxLines,
     this.autofocus = false,
+    this.expands = false,
+    this.style,
+    this.showBorder = true,
   });
 
   /// Controls the text being edited.
@@ -53,6 +56,18 @@ class Textarea extends StatefulWidget {
 
   /// Whether the field should focus itself when first built.
   final bool autofocus;
+
+  /// When `true`, the field expands to fill the available space (used by
+  /// code editors). Requires [maxLines] to stay `null`.
+  final bool expands;
+
+  /// Overrides the text style (e.g. a monospace family for editors).
+  /// Falls back to token-derived typography when `null`.
+  final TextStyle? style;
+
+  /// When `false`, the hairline border is skipped (for editors embedded in
+  /// a panel that already draws its own surface).
+  final bool showBorder;
 
   @override
   State<Textarea> createState() => _TextareaState();
@@ -92,53 +107,61 @@ class _TextareaState extends State<Textarea> {
         widget.tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
     final focused = _focusNode.hasFocus;
 
-    final borderColor =
-        !widget.enabled ? t.borderColor : (focused ? t.primaryColor : t.borderColor);
+    final borderColor = !widget.enabled
+        ? t.borderColor
+        : (focused ? t.primaryColor : t.borderColor);
     final fillColor = widget.enabled ? t.surfaceColor : t.controlDisabledColor;
 
+    final field = TextField(
+      controller: _controller,
+      focusNode: _focusNode,
+      enabled: widget.enabled,
+      autofocus: widget.autofocus,
+      minLines: widget.expands ? null : widget.minLines,
+      maxLines: widget.expands ? null : (widget.maxLines ?? widget.minLines),
+      expands: widget.expands,
+      keyboardType: TextInputType.multiline,
+      textInputAction: TextInputAction.newline,
+      onChanged: widget.onChanged,
+      onSubmitted: widget.onSubmitted,
+      cursorColor: t.primaryColor,
+      textAlignVertical: TextAlignVertical.top,
+      style:
+          widget.style ??
+          TextStyle(
+            fontFamily: t.fontFamily,
+            fontSize: t.fontSize,
+            color: widget.enabled
+                ? t.foregroundColor
+                : t.disabledForegroundColor,
+            height: 1.4,
+          ),
+      decoration: InputDecoration(
+        hintText: widget.hint,
+        hintStyle: TextStyle(
+          fontFamily: t.fontFamily,
+          fontSize: t.fontSize,
+          color: t.disabledForegroundColor,
+        ),
+        isDense: true,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        disabledBorder: InputBorder.none,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: t.controlPaddingX,
+          vertical: t.compactSpacing * 1.5,
+        ),
+      ),
+    );
+    if (!widget.showBorder) return field;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: fillColor,
         border: Border.all(color: borderColor, width: t.borderWidth),
         borderRadius: BorderRadius.circular(t.cornerRadius),
       ),
-      child: TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        enabled: widget.enabled,
-        autofocus: widget.autofocus,
-        minLines: widget.minLines,
-        maxLines: widget.maxLines ?? widget.minLines,
-        keyboardType: TextInputType.multiline,
-        textInputAction: TextInputAction.newline,
-        onChanged: widget.onChanged,
-        onSubmitted: widget.onSubmitted,
-        cursorColor: t.primaryColor,
-        textAlignVertical: TextAlignVertical.top,
-        style: TextStyle(
-          fontFamily: t.fontFamily,
-          fontSize: t.fontSize,
-          color: widget.enabled ? t.foregroundColor : t.disabledForegroundColor,
-          height: 1.4,
-        ),
-        decoration: InputDecoration(
-          hintText: widget.hint,
-          hintStyle: TextStyle(
-            fontFamily: t.fontFamily,
-            fontSize: t.fontSize,
-            color: t.disabledForegroundColor,
-          ),
-          isDense: true,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          disabledBorder: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: t.controlPaddingX,
-            vertical: t.compactSpacing * 1.5,
-          ),
-        ),
-      ),
+      child: field,
     );
   }
 }

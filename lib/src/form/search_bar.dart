@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../common/icon_button.dart';
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
 
@@ -124,6 +125,122 @@ class _SearchInputState extends State<SearchInput> {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// 可展开的搜索框:收起时是一个放大镜按钮,点击展开为 [SearchInput];
+/// 失焦且内容为空时自动收起(工具栏搜索场景)。
+class ExpandableSearch extends StatefulWidget {
+  const ExpandableSearch({
+    super.key,
+    this.controller,
+    this.hintText = '搜索...',
+    this.expandedWidth = 200,
+    this.onChanged,
+    this.onSubmitted,
+    this.icon = Icons.search,
+    this.tokens,
+  });
+
+  final TextEditingController? controller;
+  final String hintText;
+
+  /// 展开态输入框宽度。
+  final double expandedWidth;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final IconData icon;
+  final DesktopTokens? tokens;
+
+  @override
+  State<ExpandableSearch> createState() => _ExpandableSearchState();
+}
+
+class _ExpandableSearchState extends State<ExpandableSearch> {
+  bool _expanded = false;
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+  late final bool _ownsController;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsController = widget.controller == null;
+    _controller = widget.controller ?? TextEditingController();
+    _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    if (_ownsController) _controller.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    // 展开态下若清空内容并失去焦点,自动收起为放大镜
+    if (!_focusNode.hasFocus && _controller.text.isEmpty && mounted) {
+      setState(() => _expanded = false);
+    }
+  }
+
+  void _expand() {
+    setState(() => _expanded = true);
+    // 展开后自动聚焦输入框
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
+  }
+
+  void _collapse() {
+    // clear 不触发 onChanged,需手动通知父级清空过滤
+    widget.onChanged?.call('');
+    _controller.clear();
+    setState(() => _expanded = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t =
+        widget.tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
+    if (!_expanded) {
+      return IconBtn(
+        icon: widget.icon,
+        iconSize: 18,
+        color: t.foregroundColor,
+        tooltip: widget.hintText,
+        tokens: t,
+        onTap: _expand,
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: widget.expandedWidth,
+          child: SearchInput(
+            controller: _controller,
+            focusNode: _focusNode,
+            hintText: widget.hintText,
+            onChanged: widget.onChanged,
+            onSubmitted: widget.onSubmitted,
+            onCleared: _collapse,
+            tokens: t,
+          ),
+        ),
+        const SizedBox(width: 2),
+        IconBtn(
+          icon: Icons.close,
+          iconSize: 18,
+          color: t.foregroundColor,
+          tooltip: '收起',
+          tokens: t,
+          onTap: _collapse,
+        ),
+      ],
     );
   }
 }

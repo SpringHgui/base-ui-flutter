@@ -50,6 +50,7 @@ export 'src/common/numeric_up_down.dart';
 export 'src/common/domain_up_down.dart';
 export 'src/common/field_row.dart';
 export 'src/common/icon_button.dart';
+export 'src/common/selectable_card.dart';
 
 // ── Common — modern supplements ─────────────────────────────────────────────
 export 'src/common/surface.dart';
@@ -72,6 +73,7 @@ export 'src/common/input_otp.dart';
 export 'src/lists/list_box.dart';
 export 'src/lists/checked_list_box.dart';
 export 'src/lists/list_view.dart';
+export 'src/lists/list_item.dart';
 export 'src/lists/tree_view.dart';
 export 'src/lists/data_grid_view.dart';
 export 'src/lists/property_grid.dart';
@@ -91,6 +93,7 @@ export 'src/containers/carousel.dart';
 export 'src/menus/menu_strip.dart';
 export 'src/menus/context_menu_strip.dart';
 export 'src/menus/tool_strip.dart';
+export 'src/menus/toolbar_button.dart';
 export 'src/menus/status_strip.dart';
 
 // ── Overlay components ──────────────────────────────────────────────────────
@@ -106,8 +109,10 @@ export 'src/overlay/check_row.dart';
 
 // ── Form controls ────────────────────────────────────────────────────────────
 export 'src/form/search_bar.dart';
+export 'src/form/inline_editor.dart';
 
 // ── Dialogs ─────────────────────────────────────────────────────────────────
+export 'src/dialogs/dialog_box.dart';
 export 'src/dialogs/color_dialog.dart';
 export 'src/dialogs/date_time_picker.dart';
 export 'src/dialogs/month_calendar.dart';

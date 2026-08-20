@@ -84,8 +84,9 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
   void didUpdateWidget(covariant ComboBox<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
-      final newText =
-          widget.value != null ? _itemString(widget.value as T) : '';
+      final newText = widget.value != null
+          ? _itemString(widget.value as T)
+          : '';
       if (_controller.text != newText) {
         _controller.text = newText;
       }
@@ -121,17 +122,19 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
     final fillColor = widget.enabled ? t.surfaceColor : t.controlDisabledColor;
 
     final dropdownItems = widget.items
-        .map((item) => DropdownMenuItem<T>(
-              value: item,
-              child: Text(
-                _itemString(item),
-                style: TextStyle(
-                  fontFamily: t.fontFamily,
-                  fontSize: t.fontSize,
-                  color: t.foregroundColor,
-                ),
+        .map(
+          (item) => DropdownMenuItem<T>(
+            value: item,
+            child: Text(
+              _itemString(item),
+              style: TextStyle(
+                fontFamily: t.fontFamily,
+                fontSize: t.fontSize,
+                color: t.foregroundColor,
               ),
-            ))
+            ),
+          ),
+        )
         .toList();
 
     return LayoutBuilder(
@@ -189,8 +192,8 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
                     color: isHint
                         ? t.disabledForegroundColor
                         : (widget.enabled
-                            ? t.foregroundColor
-                            : t.disabledForegroundColor),
+                              ? t.foregroundColor
+                              : t.disabledForegroundColor),
                     decoration: TextDecoration.none,
                     fontWeight: FontWeight.w400,
                   ),
@@ -267,7 +270,10 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
                 constraints: BoxConstraints(maxHeight: panelHeight.toDouble()),
                 decoration: BoxDecoration(
                   color: t.surfaceColor,
-                  border: Border.all(color: t.borderColor, width: t.borderWidth),
+                  border: Border.all(
+                    color: t.borderColor,
+                    width: t.borderWidth,
+                  ),
                 ),
                 child: ListView.builder(
                   physics: widget.items.length <= 10
@@ -296,7 +302,8 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
                               ? t.primaryColor
                               : (isHovered ? t.controlHoverColor : null),
                           padding: EdgeInsets.symmetric(
-                              horizontal: t.controlPaddingX),
+                            horizontal: t.controlPaddingX,
+                          ),
                           alignment: Alignment.centerLeft,
                           child: Text(
                             _itemString(item),
@@ -329,7 +336,9 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
   double _lastBoxWidth = 200;
 
   Widget _buildEditable(
-      DesktopTokens t, List<DropdownMenuItem<T>> dropdownItems) {
+    DesktopTokens t,
+    List<DropdownMenuItem<T>> dropdownItems,
+  ) {
     // RawAutocomplete (unlike Autocomplete) accepts an external
     // focusNode and textEditingController, so the caller-supplied
     // focusNode actually drives focus and the focused border state.
@@ -338,81 +347,124 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
       focusNode: _focusNode,
       optionsBuilder: (textEditingValue) {
         if (textEditingValue.text.isEmpty) return widget.items;
-        return widget.items.where((item) =>
-            _itemString(item)
-                .toLowerCase()
-                .contains(textEditingValue.text.toLowerCase()));
+        return widget.items.where(
+          (item) => _itemString(
+            item,
+          ).toLowerCase().contains(textEditingValue.text.toLowerCase()),
+        );
       },
       displayStringForOption: _itemString,
       onSelected: widget.onChanged,
       optionsViewBuilder: (context, onSelected, options) {
         return Align(
           alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 2,
-            color: t.surfaceColor,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: ListView(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                children: options
-                    .map((option) => InkWell(
-                          onTap: () => onSelected(option),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: t.controlPaddingX,
-                              vertical: t.compactSpacing,
-                            ),
-                            child: Text(
-                              _itemString(option),
-                              style: TextStyle(
-                                fontFamily: t.fontFamily,
-                                fontSize: t.fontSize,
-                                color: t.foregroundColor,
-                              ),
-                            ),
-                          ),
-                        ))
-                    .toList(),
-              ),
+          child: Container(
+            width: _lastBoxWidth,
+            constraints: const BoxConstraints(maxHeight: 200),
+            decoration: BoxDecoration(
+              color: t.surfaceColor,
+              border: Border.all(color: t.borderColor, width: t.borderWidth),
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              children: options
+                  .map(
+                    (option) => _EditableOption(
+                      text: _itemString(option),
+                      tokens: t,
+                      onSelected: () => onSelected(option),
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         );
       },
-      fieldViewBuilder:
-          (context, controller, focusNode, onFieldSubmitted) {
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          enabled: widget.enabled,
-          cursorColor: t.primaryColor,
-          textAlignVertical: TextAlignVertical.center,
-          style: TextStyle(
-            fontFamily: t.fontFamily,
-            fontSize: t.fontSize,
-            color: widget.enabled
-                ? t.foregroundColor
-                : t.disabledForegroundColor,
-            height: 1.0,
-          ),
-          decoration: InputDecoration(
-            hintText: widget.hint,
-            hintStyle: TextStyle(
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return Material(
+          type: MaterialType.transparency,
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            enabled: widget.enabled,
+            cursorColor: t.primaryColor,
+            textAlignVertical: TextAlignVertical.center,
+            style: TextStyle(
               fontFamily: t.fontFamily,
               fontSize: t.fontSize,
-              color: t.disabledForegroundColor,
+              color: widget.enabled
+                  ? t.foregroundColor
+                  : t.disabledForegroundColor,
+              height: 1.0,
             ),
-            isDense: true,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            disabledBorder: InputBorder.none,
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: t.controlPaddingX),
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: TextStyle(
+                fontFamily: t.fontFamily,
+                fontSize: t.fontSize,
+                color: t.disabledForegroundColor,
+              ),
+              isDense: true,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: t.controlPaddingX),
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+/// 可编辑下拉候选项:Listener 按下即选中(零延迟) + MouseRegion hover 高亮,
+/// 不依赖 Material InkWell(与只读下拉面板一致的交互约定)。
+class _EditableOption extends StatefulWidget {
+  const _EditableOption({
+    required this.text,
+    required this.tokens,
+    required this.onSelected,
+  });
+
+  final String text;
+  final DesktopTokens tokens;
+  final VoidCallback onSelected;
+
+  @override
+  State<_EditableOption> createState() => _EditableOptionState();
+}
+
+class _EditableOptionState extends State<_EditableOption> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.tokens;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: Listener(
+        onPointerDown: (_) => widget.onSelected(),
+        child: Container(
+          color: _hover ? t.controlHoverColor : null,
+          padding: EdgeInsets.symmetric(
+            horizontal: t.controlPaddingX,
+            vertical: t.compactSpacing,
+          ),
+          child: Text(
+            widget.text,
+            style: TextStyle(
+              fontFamily: t.fontFamily,
+              fontSize: t.fontSize,
+              color: t.foregroundColor,
+              decoration: TextDecoration.none,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

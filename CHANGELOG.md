@@ -1,5 +1,22 @@
 ## Unreleased
 
+* 新增 `ToolbarButton`（menus）：独立可用的工具栏按钮（图标 + 文本 / 仅图标），自绘 hover / pressed / 禁用态，支持 `iconColor` 功能强调色、`showCaret` 下拉箭头、`outlined` 边框触发器样式、`textMaxWidth` 窄条省略，无 Material 水波纹与点击动画。区别于数据模型 `ToolStripButton`，可挂在任意布局中。
+* `IconBtn` 重写为自绘实现（不再委托 `Button`）：新增 `child`（任意内容，如 `CustomPaint` 图标）、`selected` / `selectedColor`（accent 淡底选中态）、`outline`（边框）、`size`（固定命中区）参数，保留原 API 兼容；含 Focus + Enter/Space 键盘激活。
+* 新增 `ListItem`（lists）：高密度列表行（前置图标 + 标题 + 尾随），`selectedColor` 支持浅底选中（文字保持前景色，树形场景），选中由 `Listener.onPointerDown` 零延迟触发，双击单独挂 `GestureDetector`。
+* 新增 `SelectableCard`（common）：可选卡片（内容 + 选中淡底 + 右上对勾圆标），禁用时整体降透明并显示 `disabledLabel` 角标，`PointerDown` 选中 + 双击动作。
+* 新增 `ExpandableSearch`（form）：可展开搜索框（收起为放大镜按钮 → 展开输入框），失焦且内容为空自动收起。
+* 新增 `InlineEditor`（form）：单元格内联编辑器（自动聚焦，Enter / 失焦提交，Esc 取消，防双触发）。
+* `TabControl` 增强：`TabItem` 新增 `onClose`（悬浮显示关闭按钮）/ `width`（固定宽度）/ `contextMenuItems`（逐标签右键菜单）；`TabControl` 新增 `tabBarColor` / `selectedTabColor` / `hoverTabColor` / `showUnderline`（可关） / `barHeight` / `tabWidth` / `scrollStep`，标签溢出时两侧滚动箭头，选中下划线去掉 `AnimatedContainer` 动画。
+* `DataGridView` 增强：新增 `showRowNumbers` / `rowNumberWidth` / `rowNumberBuilder`（行号列，按下选中整行）、`selectedCell` / `onCellSelected` / `onCellDoubleTap` / `onCellContext`（单元格选中 / 双击 / 右键，选中由 `Listener.onPointerDown` 零延迟触发）、`headerColor` / `gridLineColor` / `selectedTextColor` / `cellPaddingX` / `headerFontSize` / `rowHoverColor`（行 hover 自持，避免整页重建）。
+* `ListItem` 新增 `borderRadius` 参数（默认 `cornerRadius` 圆角，可传 `BorderRadius.zero` 用于高密度直角列表 / 对象面板）。
+* `TabControl` 新增 `contentPadding` 参数（可关掉默认 8px 内容内边距，适配纯标签条场景，如 db_lite 对象视图标签栏）。
+* `SelectableCard` 覆盖层（选中淡底 / 对勾圆标 / 禁用角标）由 `Stack` 改为 `CustomPaint` 自绘：Stack 在无界约束下无法布局（如 `DialogBox` 的 `IntrinsicHeight` 尺寸计算会崩溃），自绘让组件在任意约束下正常渲染，且不引入额外渲染层级。
+
+* `Textarea` 新增 `expands`（填满可用空间，用于代码编辑器）、`style`（覆盖文本样式，如 monospace 字体）与 `showBorder`（关闭边框，供嵌入面板的编辑器使用）参数；`expands: true` 时自动置空 `minLines` / `maxLines` 并透传 `TextField.expands`。
+* `ComboBox` 可编辑(editable)模式下拉面板移除 `Material(elevation)` 阴影与 `InkWell` 水波纹：改为纯 `Container` 边框面板 + `Listener.onPointerDown` 按下即选中 + `MouseRegion` hover 高亮（与只读模式下拉一致），消除阴影 shader 编译与墨水动画开销。
+
+* 新增 `DialogBox`:通用对话框外壳(标题栏+正文+可选 footer),承载自定义内容的模态窗口;标题栏用 `surfaceColor` 底色 + `IconBtn` 关闭按钮,正文用窗口底色,扁平 WinForm 风格(无外边框、无 Material 阴影),自带 `DefaultTextStyle` 干净基线。命名避开 Flutter Material 的同名 `Dialog` 冲突。配合 `showDialog` 使用,模态行为(遮罩/Esc/返回值)仍由调用方掌控。
+
 * `ToolStripButton` / `ToolStripDropDownButton` 新增可选 `iconColor` 参数,支持为工具条按钮图标指定语义强调色(如新建=绿、删除=红),默认仍使用 `DesktopTokens.foregroundColor`。
 * `ToolStrip` 下拉面板移除 `Material(elevation)` 与冗余双重边框,改为纯 `Container` 扁平 WinForm 风格,避免首次展开阴影 shader 编译延迟。
 * `ToolStripDropDownButton` 支持分离式(split)按钮:新增可选 `onPressed`,赋值时按钮主体(图标+文字)点击触发 `onPressed`,右侧独立箭头点击才打开下拉菜单,主体与箭头之间用细分隔线隔开;不赋值时行为与旧版一致(整钮打开下拉)。
