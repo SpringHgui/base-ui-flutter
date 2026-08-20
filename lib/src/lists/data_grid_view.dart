@@ -347,16 +347,22 @@ class _DataGridViewState extends State<DataGridView> {
           }
         },
         onPointerUp: (event) {
+          final wasDragging = _isDragging;
           _dragStartCell = null;
           _dragCurrentCell = null;
           _isDragging = false;
           _stopAutoScroll();
+          // 拖拽中重建的行缓存了 isDragging=true,结束时必须再重建,
+          // 否则单元格 onPointerDown 会被过期的 isDragging 拦截(无法单选)
+          if (wasDragging) setState(() {});
         },
         onPointerCancel: (event) {
+          final wasDragging = _isDragging;
           _dragStartCell = null;
           _dragCurrentCell = null;
           _isDragging = false;
           _stopAutoScroll();
+          if (wasDragging) setState(() {});
         },
         child: listArea,
       );
