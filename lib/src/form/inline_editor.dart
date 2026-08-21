@@ -47,8 +47,15 @@ class InlineEditor extends StatefulWidget {
 }
 
 class _InlineEditorState extends State<InlineEditor> {
+  // 初始光标置于文本末尾。两层防护:
+  // 1. controller 预设合法 collapsed 选区,挡掉 TextField 聚焦时
+  //    "选区无效 → 光标置末尾"的兜底路径;
+  // 2. 显式 selectAllOnFocus: false —— 桌面平台(Win/Linux/macOS)默认
+  //    selectAllOnFocus 为 true,聚焦时无论如何都会全选,预设选区挡不住。
   late final TextEditingController _controller =
-      TextEditingController(text: widget.initialValue);
+      TextEditingController(text: widget.initialValue)
+        ..selection =
+            TextSelection.collapsed(offset: widget.initialValue.length);
   late final FocusNode _focusNode = FocusNode();
 
   /// 防止提交/取消后失焦回调二次触发。
@@ -111,6 +118,8 @@ class _InlineEditorState extends State<InlineEditor> {
           focusNode: _focusNode,
           tokens: t,
           contentPadding: widget.contentPadding,
+          // 桌面平台默认聚焦全选,单元格就地编辑需要的是"光标置于末尾"
+          selectAllOnFocus: false,
           onSubmitted: (_) => _finish(),
         ),
       ),

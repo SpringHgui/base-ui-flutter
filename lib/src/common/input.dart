@@ -21,6 +21,7 @@ class Input extends StatefulWidget {
     this.keyboardType,
     this.obscureText = false,
     this.obscureToggle = false,
+    this.selectAllOnFocus,
     this.contentPadding,
   });
 
@@ -59,6 +60,13 @@ class Input extends StatefulWidget {
   /// is rendered inside the field's right edge so the user can switch between
   /// masked dots and plaintext. No ripple, no click animation.
   final bool obscureToggle;
+
+  /// Whether to select all text when the field gains focus.
+  ///
+  /// `null` follows the platform default (desktop: true → 聚焦即全选;
+  /// Android/iOS: false). Pass `false` when the field should keep its current
+  /// cursor position on focus instead (e.g. inline cell editors).
+  final bool? selectAllOnFocus;
 
   /// Override the default content padding inside the input field.
   /// When null, defaults to `EdgeInsets.symmetric(horizontal: t.controlPaddingX, vertical: 8)`.
@@ -158,6 +166,7 @@ class _InputState extends State<Input> {
       textInputAction: widget.textInputAction,
       keyboardType: widget.keyboardType,
       obscureText: widget.obscureText && (widget.obscureToggle ? _obscured : true),
+      selectAllOnFocus: widget.selectAllOnFocus,
       cursorWidth: 1.0,
       cursorColor: t.primaryColor,
       textAlignVertical: TextAlignVertical.center,
