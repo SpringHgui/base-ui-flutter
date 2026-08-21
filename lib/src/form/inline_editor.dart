@@ -18,6 +18,7 @@ class InlineEditor extends StatefulWidget {
     this.onCancel,
     this.height,
     this.tokens,
+    this.contentPadding,
   });
 
   /// 初始文本。
@@ -37,6 +38,9 @@ class InlineEditor extends StatefulWidget {
 
   /// Token 覆盖;回退到外层 [TokenScope],最后 [DesktopTokens.winForm]。
   final DesktopTokens? tokens;
+
+  /// 内边距覆盖;传 [EdgeInsets.zero] 可消除与外层容器的双重间距。
+  final EdgeInsetsGeometry? contentPadding;
 
   @override
   State<InlineEditor> createState() => _InlineEditorState();
@@ -106,6 +110,7 @@ class _InlineEditorState extends State<InlineEditor> {
           controller: _controller,
           focusNode: _focusNode,
           tokens: t,
+          contentPadding: widget.contentPadding,
           onSubmitted: (_) => _finish(),
         ),
       ),

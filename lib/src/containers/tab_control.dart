@@ -28,7 +28,8 @@ class TabItem extends StatelessWidget {
   /// Page content shown while this tab is selected.
   final Widget? child;
 
-  /// When set, a close button appears on hover and invokes this callback.
+  /// When set, a close button appears on hover — pinned to the tab's right
+  /// edge — and invokes this callback.
   final VoidCallback? onClose;
 
   /// Fixed header width; when `null` falls back to [TabControl.tabWidth].
@@ -405,6 +406,22 @@ class _TabHeader extends StatefulWidget {
 class _TabHeaderState extends State<_TabHeader> {
   bool _hover = false;
 
+  /// Tab label text. WinForms tabs keep the regular weight; state is carried
+  /// by colour alone.
+  Widget _label(DesktopTokens t, Color fg) => Text(
+        widget.tab.label,
+        style: TextStyle(
+          fontFamily: t.fontFamily,
+          fontSize: t.fontSize * 0.875,
+          fontWeight: FontWeight.w400,
+          color: fg,
+          height: 1.2,
+          decoration: TextDecoration.none,
+        ),
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+      );
+
   @override
   Widget build(BuildContext context) {
     final t = widget.tokens;
@@ -416,8 +433,12 @@ class _TabHeaderState extends State<_TabHeader> {
         Color.alphaBlend(t.hoverOverlayColor, widget.stripColor);
     final bg = selected ? selectedBg : (_hover ? hoverBg : null);
 
-    // Close button only while hovering a closable tab; takes no space.
-    final showClose = _hover && widget.tab.onClose != null;
+    // Close button: hover only, pinned to the tab's right edge; hidden while
+    // not hovering (takes no space). Closable tabs left-align the icon +
+    // label so the label never shifts when the button appears; non-closable
+    // tabs keep the centred look.
+    final isClosable = widget.tab.onClose != null;
+    final showClose = _hover && isClosable;
     final fg = selected ? t.foregroundColor : t.mutedForegroundColor;
 
     final body = MouseRegion(
@@ -433,48 +454,53 @@ class _TabHeaderState extends State<_TabHeader> {
           selected: selected,
           child: SizedBox(
             height: widget.height,
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: t.controlPaddingX),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.tab.icon != null) ...[
-                      widget.tab.icon!,
-                      const SizedBox(width: 6),
-                    ],
-                    Flexible(
-                      child: Text(
-                        widget.tab.label,
-                        style: TextStyle(
-                          fontFamily: t.fontFamily,
-                          fontSize: t.fontSize * 0.875,
-                          // WinForms tabs keep the regular weight; state is
-                          // carried by colour alone.
-                          fontWeight: FontWeight.w400,
-                          color: fg,
-                          height: 1.2,
-                          decoration: TextDecoration.none,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
+            child: isClosable
+                // Closable: icon + label anchored left, close button pinned
+                // to the right edge on hover. The Expanded label absorbs the
+                // width change, so nothing jumps when the button appears.
+                ? Padding(
+                    padding: EdgeInsets.only(
+                      left: t.controlPaddingX,
+                      right: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        if (widget.tab.icon != null) ...[
+                          widget.tab.icon!,
+                          const SizedBox(width: 6),
+                        ],
+                        Expanded(child: _label(t, fg)),
+                        if (showClose) ...[
+                          const SizedBox(width: 4),
+                          IconBtn(
+                            icon: Icons.close,
+                            iconSize: 11,
+                            size: const Size(16, 16),
+                            color: t.mutedForegroundColor,
+                            tokens: t,
+                            onTap: widget.tab.onClose,
+                          ),
+                        ],
+                      ],
+                    ),
+                  )
+                : Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: t.controlPaddingX,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.tab.icon != null) ...[
+                            widget.tab.icon!,
+                            const SizedBox(width: 6),
+                          ],
+                          Flexible(child: _label(t, fg)),
+                        ],
                       ),
                     ),
-                    if (showClose) ...[
-                      const SizedBox(width: 4),
-                      IconBtn(
-                        icon: Icons.close,
-                        iconSize: 11,
-                        size: const Size(16, 16),
-                        color: t.mutedForegroundColor,
-                        tokens: t,
-                        onTap: widget.tab.onClose,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+                  ),
           ),
         ),
       ),
@@ -542,14 +568,11 @@ class _TabChromePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Classic WinForms tab: slightly rounded top corners, square bottom.
-    const r = 3.0;
+    // Classic WinForms tab: square top corners, square bottom.
     final path = Path()
       ..moveTo(0, size.height)
-      ..lineTo(0, r)
-      ..quadraticBezierTo(0, 0, r, 0)
-      ..lineTo(size.width - r, 0)
-      ..quadraticBezierTo(size.width, 0, size.width, r)
+      ..lineTo(0, 0)
+      ..lineTo(size.width, 0)
       ..lineTo(size.width, size.height);
     if (color != null) {
       // Filling an open path closes it implicitly across the bottom edge.

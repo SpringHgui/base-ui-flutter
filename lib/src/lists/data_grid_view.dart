@@ -120,6 +120,7 @@ class DataGridView extends StatefulWidget {
     this.selectedCells,
     this.onCellsSelected,
     this.anchorCell,
+    this.editingCell,
   });
 
   /// Column definitions.
@@ -241,6 +242,10 @@ class DataGridView extends StatefulWidget {
   /// The anchor cell for Shift+click range selection.
   /// Typically the last singly-clicked cell.
   final (int, int)? anchorCell;
+
+  /// The cell currently in edit mode; when set, the matching cell skips the
+  /// horizontal padding so the editor fills the full cell width.
+  final (int, int)? editingCell;
 
   @override
   State<DataGridView> createState() => _DataGridViewState();
@@ -635,6 +640,7 @@ class _DataGridViewState extends State<DataGridView> {
           Color.alphaBlend(t.hoverOverlayColor, t.surfaceColor),
       zebra: widget.zebra,
       columnWidths: widget.columnWidths,
+      editingCell: widget.editingCell,
     );
   }
 }
@@ -670,6 +676,7 @@ class _DataGridRow extends StatefulWidget {
     required this.hoverColor,
     required this.zebra,
     this.columnWidths,
+    this.editingCell,
   });
 
   final DesktopTokens t;
@@ -698,6 +705,7 @@ class _DataGridRow extends StatefulWidget {
   final Color hoverColor;
   final bool zebra;
   final List<double>? columnWidths;
+  final (int, int)? editingCell;
 
   @override
   State<_DataGridRow> createState() => _DataGridRowState();
@@ -838,18 +846,26 @@ class _DataGridRowState extends State<_DataGridRow> {
             : null,
         child: Container(
           height: w.rowHeight,
-          padding: EdgeInsets.symmetric(horizontal: w.cellPaddingX),
-          alignment: Alignment.centerLeft,
           decoration: BoxDecoration(
             color: cellSelected ? w.t.primaryColor : null,
             border: Border(
               right: BorderSide(color: w.gridLineColor, width: w.t.borderWidth),
             ),
           ),
-          child: DefaultTextStyle.merge(
-            style: TextStyle(color: fg),
-            child: w.cellBuilder(w.row, col),
-          ),
+          child: (w.editingCell != null &&
+                  w.editingCell!.$1 == w.row &&
+                  w.editingCell!.$2 == col)
+              ? DefaultTextStyle.merge(
+                  style: TextStyle(color: fg),
+                  child: w.cellBuilder(w.row, col),
+                )
+              : Padding(
+                  padding: EdgeInsets.symmetric(horizontal: w.cellPaddingX),
+                  child: DefaultTextStyle.merge(
+                    style: TextStyle(color: fg),
+                    child: w.cellBuilder(w.row, col),
+                  ),
+                ),
         ),
       ),
     );

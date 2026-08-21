@@ -283,9 +283,12 @@ class _ToolStripButtonWidgetState extends State<_ToolStripButtonWidget> {
   Widget build(BuildContext context) {
     final t = widget.tokens;
     final b = widget.button;
-    final bg = _pressed
-        ? t.controlPressedColor
-        : (_hovered ? t.controlHoverColor : Colors.transparent);
+    // 禁用态不响应 hover/pressed 背景变化
+    final bg = !b.enabled
+        ? Colors.transparent
+        : (_pressed
+            ? t.controlPressedColor
+            : (_hovered ? t.controlHoverColor : Colors.transparent));
 
     final content = Container(
       height: t.controlHeight,
@@ -434,7 +437,10 @@ class _ToolStripDropDownWidgetState
   Widget build(BuildContext context) {
     final t = widget.tokens;
     final b = widget.button;
-    final bg = _hovered ? t.controlHoverColor : Colors.transparent;
+    // 禁用态不响应 hover 背景变化
+    final bg = !b.enabled
+        ? Colors.transparent
+        : (_hovered ? t.controlHoverColor : Colors.transparent);
     final isSplit = b.onPressed != null;
 
     // 主按钮体(图标 + 文字 + 非 split 模式下的下拉箭头)。

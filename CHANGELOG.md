@@ -1,5 +1,6 @@
 ## Unreleased
 
+* `TabControl` 可关闭标签(`TabItem.onClose`)的关闭按钮固定到标签**最右缘**:悬停时出现在右缘(不再跟在文字后面),图标+文字改为左对齐,`Expanded` 文字吸收宽度变化,按钮出现/消失时文字位置不跳动;非可关闭标签保持原有居中布局。
 * `Input` 新增 `obscureToggle` 参数：配合 `obscureText` 时在输入框右缘渲染自绘眼睛按钮，点击在掩码点与明文之间切换（密码可见性）；hover / pressed 由 `hoverOverlayColor` / `pressedOverlayColor` 基于控件底色派生（明暗自适应），无 Material 水波纹与点击动画，点击不抢占输入框焦点；外部关闭 `obscureText` 时自动重置切换状态。
 * `TabControl` 重绘为经典 WinForms 样式:控件色(control)标签条 + 底部发丝线;选中标签用 surface 底色、比未选中高 2px 且下探 1px 压住发丝线，与下方带边框的页面面板无缝连成一体(面板不画顶边，顶边由标签条底线 + 选中标签覆盖);未选中标签融入条底色，hover 由条底色派生(明暗自适应)。标签外形改自绘 `_TabChrome`(圆角顶 + 三边描边)，文本恢复常规字重，移除 accent 下划线。**移除 `showUnderline` 参数**(WinForms 无下划线语义);纯标签条场景(所有 `TabItem.child` 为 null)不再渲染页面面板与底线，仅保留标签条。
 * 修复 `ComboBox` 嵌入 `DialogBox` 时崩溃：内部 `LayoutBuilder` 与 `DialogBox` 的 `IntrinsicHeight` 冲突（"LayoutBuilder does not support returning intrinsic dimensions"，如 db_lite 新建连接 SQL Server 表单）。改为 `GlobalKey` 按需测量实际渲染宽度（下拉面板只在布局完成后才会打开，测量安全），顺带修复无界宽度约束下弹层宽度变为无穷大的隐患。

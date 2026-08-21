@@ -21,6 +21,7 @@ class Input extends StatefulWidget {
     this.keyboardType,
     this.obscureText = false,
     this.obscureToggle = false,
+    this.contentPadding,
   });
 
   /// Controls the text being edited.
@@ -58,6 +59,10 @@ class Input extends StatefulWidget {
   /// is rendered inside the field's right edge so the user can switch between
   /// masked dots and plaintext. No ripple, no click animation.
   final bool obscureToggle;
+
+  /// Override the default content padding inside the input field.
+  /// When null, defaults to `EdgeInsets.symmetric(horizontal: t.controlPaddingX, vertical: 8)`.
+  final EdgeInsetsGeometry? contentPadding;
 
   @override
   State<Input> createState() => _InputState();
@@ -176,6 +181,7 @@ class _InputState extends State<Input> {
         focusedBorder: InputBorder.none,
         disabledBorder: InputBorder.none,
         contentPadding:
+            widget.contentPadding ??
             EdgeInsets.symmetric(horizontal: t.controlPaddingX, vertical: 8),
       ),
     );
