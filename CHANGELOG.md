@@ -1,5 +1,9 @@
 ## Unreleased
 
+* **移除重复组件 `Item`(common)与 `ListBox`(lists)**：两者分别是 `ListItem` / `WinListView` 的功能子集，一并删除。
+  - `Item` → `ListItem`：`DropDownButton.items` 公共类型改为 `List<ListItem>`（选中仍按下即触发，菜单关合逻辑不变）；`Item` 的 `text` 参数对应 `ListItem.title`，示例页 / quick_overview / 测试同步迁移；键盘激活回归测试改直接测 `Surface`。
+  - `ListBox` → `WinListView`：list 模式参数完全一致，`WinListView` 额外提供 details/icon 模式、builder 模式、`onItemActivated` 双击激活与零延迟选中；删除 `list_box_page.dart` 示例页及其 main.dart / smoke_test 注册与三语 l10n 键；`CheckedListBox` 文档不再引用 `ListBox`。
+* 修复 `FieldRow` 在 debug 下崩溃 / 示例页空白：`Row` 对非 flex 子项(非 stretch 对齐)不约束最大宽度，直接放 `Input`(TextField) 会触发 "InputDecorator cannot have an unbounded width" 断言。`FieldRow` 现将 child 包进松约束 `Flexible`，子项获得有界最大宽度且不被强制拉伸——固定宽度写法(如 `SizedBox(width: 280, child: Input(...))`)保持原布局。
 * 修复 `InlineEditor` 进入编辑时全选文本:桌面平台(Win/Linux/macOS)`TextField.selectAllOnFocus` 默认 true,聚焦即全选,预设 collapsed 选区挡不住;`Input` 新增 `selectAllOnFocus` 参数透传(默认 null 跟随平台),`InlineEditor` 显式传 `false` 并保留 controller 预设末尾光标,首次单击进入编辑时光标直接置于内容末尾,再次点击编辑器内文本可将光标定位到点击位置。
 * `TabControl` 可关闭标签(`TabItem.onClose`)的关闭按钮固定到标签**最右缘**:悬停时出现在右缘(不再跟在文字后面),图标+文字改为左对齐,`Expanded` 文字吸收宽度变化,按钮出现/消失时文字位置不跳动;非可关闭标签保持原有居中布局。
 * `Input` 新增 `obscureToggle` 参数：配合 `obscureText` 时在输入框右缘渲染自绘眼睛按钮，点击在掩码点与明文之间切换（密码可见性）；hover / pressed 由 `hoverOverlayColor` / `pressedOverlayColor` 基于控件底色派生（明暗自适应），无 Material 水波纹与点击动画，点击不抢占输入框焦点；外部关闭 `obscureText` 时自动重置切换状态。

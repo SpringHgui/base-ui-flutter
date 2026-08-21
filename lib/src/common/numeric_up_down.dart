@@ -126,6 +126,10 @@ class _NumericUpDownState extends State<NumericUpDown> {
         : (focused ? t.primaryColor : t.borderColor);
     final fillColor = widget.enabled ? t.surfaceColor : t.controlDisabledColor;
     final buttonWidth = t.controlHeight * 0.75;
+    // isDense 会让 InputDecorator 容器塌缩到行高并贴顶,这里用精确的垂直
+    // padding 把内容区垫到与控件等高,数字即垂直居中(style height:1.0 时
+    // 行高恰好等于 fontSize)。
+    final double padV = (t.controlHeight - t.fontSize) / 2;
 
     return SizedBox(
       height: t.controlHeight,
@@ -159,12 +163,15 @@ class _NumericUpDownState extends State<NumericUpDown> {
                 ),
                 decoration: InputDecoration(
                   isDense: true,
+                  visualDensity: VisualDensity.standard,
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   disabledBorder: InputBorder.none,
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: t.controlPaddingX),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: t.controlPaddingX,
+                    vertical: padV < 0 ? 0 : padV,
+                  ),
                 ),
               ),
             ),

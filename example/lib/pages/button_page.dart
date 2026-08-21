@@ -15,7 +15,19 @@ class _ButtonPageState extends State<ButtonPage> {
   final _focusNode = FocusNode();
 
   @override
+  void initState() {
+    super.initState();
+    // 监听焦点变化，让状态指示灯实时更新
+    _focusNode.addListener(_handleFocusChanged);
+  }
+
+  void _handleFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _focusNode.removeListener(_handleFocusChanged);
     _focusNode.dispose();
     super.dispose();
   }
@@ -23,6 +35,7 @@ class _ButtonPageState extends State<ButtonPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final tokens = TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
     return ScrollableControl(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,9 +82,11 @@ class _ButtonPageState extends State<ButtonPage> {
           ),
           const SizedBox(height: 16),
 
-          // 5. Button with external focus node
+          // 5. Button focus — live status indicator
           Label(l10n.t('button.focusNode')),
           const SizedBox(height: 6),
+          Label(l10n.t('button.focusDesc')),
+          const SizedBox(height: 4),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -80,13 +95,41 @@ class _ButtonPageState extends State<ButtonPage> {
                 focusNode: _focusNode,
                 onPressed: () {},
               ),
-              const SizedBox(width: 8),
-              Button(
-                text: l10n.t('button.focusProgrammatic'),
-                onPressed: () => _focusNode.requestFocus(),
+              const SizedBox(width: 16),
+              // 实时焦点状态指示灯：高亮色 = 已获得焦点，灰色 = 未获得
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _focusNode.hasFocus
+                          ? tokens.primaryColor
+                          : tokens.borderColor,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Label(
+                    l10n.t('button.focusStatus').replaceAll(
+                      '{status}',
+                      _focusNode.hasFocus
+                          ? l10n.t('button.focusStatusFocused')
+                          : l10n.t('button.focusStatusUnfocused'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          Button(
+            text: l10n.t('button.focusProgrammatic'),
+            onPressed: () => _focusNode.requestFocus(),
+          ),
+          const SizedBox(height: 4),
+          Label(l10n.t('button.focusTabHint')),
           const SizedBox(height: 16),
 
           // 6. Autofocus button

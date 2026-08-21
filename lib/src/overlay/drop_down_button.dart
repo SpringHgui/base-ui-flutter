@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../foundation/desktop_tokens.dart';
 import '../foundation/overlay.dart';
 import '../foundation/token_scope.dart';
-import '../common/item.dart';
+import '../lists/list_item.dart';
 
-/// A button that opens a drop-down menu of [Item]s (the WinForm-flavored
+/// A button that opens a drop-down menu of [ListItem]s (the WinForm-flavored
 /// counterpart of the shadcn "DropdownMenu"; named `DropDownButton` after
 /// `ToolStripDropDownButton`).
 ///
@@ -34,7 +34,7 @@ class DropDownButton extends StatefulWidget {
   final Widget trigger;
 
   /// The menu rows.
-  final List<Item> items;
+  final List<ListItem> items;
 
   final OverlaySide side;
   final OverlayAlign align;

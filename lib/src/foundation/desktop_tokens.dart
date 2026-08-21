@@ -43,7 +43,7 @@ class DesktopTokens {
     this.controlPressedColor = const Color(0xFFCCCCCC),
     this.controlDisabledColor = const Color(0xFFF0F0F0),
     this.disabledForegroundColor = const Color(0xFFA0A0A0),
-    this.fontFamily = 'Segoe UI',
+    this.fontFamily = 'Microsoft YaHei',
     this.fontSize = 13.0,
     this.compactSpacing = 4.0,
     this.controlHeight = 28.0,
@@ -108,7 +108,7 @@ class DesktopTokens {
     controlPressedColor: Color(0xFFD4D4D8), // neutral-300
     controlDisabledColor: Color(0xFFF4F4F5),
     disabledForegroundColor: Color(0xFFA1A1AA), // neutral-400
-    fontFamily: 'Segoe UI',
+    fontFamily: 'Microsoft YaHei',
     fontSize: 14.0,
     compactSpacing: 4.0,
     controlHeight: 36.0,
@@ -174,7 +174,7 @@ class DesktopTokens {
   /// Text color while disabled.
   final Color disabledForegroundColor;
 
-  /// Font family used by all controls. WinForms default is `Segoe UI`.
+  /// Font family used by all controls. WinForms default is `Microsoft YaHei`.
   final String fontFamily;
 
   /// Base font size in logical pixels (~9 pt).

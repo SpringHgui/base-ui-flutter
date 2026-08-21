@@ -21,7 +21,7 @@ class _PropertyGridPageState extends State<PropertyGridPage> {
       PropertyItem(name: 'Name', category: 'Appearance', value: 'MyControl', description: 'The control name'),
       PropertyItem(name: 'BackColor', category: 'Appearance', value: '#F0F0F0', description: 'Background colour'),
       PropertyItem(name: 'ForeColor', category: 'Appearance', value: '#333333', description: 'Foreground colour'),
-      PropertyItem(name: 'Font', category: 'Appearance', value: 'Segoe UI, 9pt', description: 'Font settings'),
+      PropertyItem(name: 'Font', category: 'Appearance', value: 'Microsoft YaHei, 9pt', description: 'Font settings'),
       PropertyItem(name: 'Enabled', category: 'Behaviour', value: 'true', description: 'Whether interactive'),
       PropertyItem(name: 'Visible', category: 'Behaviour', value: 'true', description: 'Whether visible'),
       PropertyItem(name: 'Text', category: 'Behaviour', value: 'Click me', readOnly: true, description: 'Display text (read-only)'),

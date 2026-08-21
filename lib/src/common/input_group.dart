@@ -72,9 +72,13 @@ class InputGroup extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(t.cornerRadius),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      // IntrinsicHeight 让整组高度取子项固有高度的最大值(如 Input 的
+      // controlHeight),再把 add-on 拉伸对齐;否则 Row(stretch) 在滚动视图等
+      // 无界高度约束下会得到 h=Infinity 而布局崩溃。
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           if (leading != null)
             Container(
               decoration: BoxDecoration(
@@ -98,7 +102,8 @@ class InputGroup extends StatelessWidget {
               ),
               child: trailing,
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

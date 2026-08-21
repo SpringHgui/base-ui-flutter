@@ -137,6 +137,10 @@ class _MaskedTextBoxState extends State<MaskedTextBox> {
     final t = widget.tokens ??
         TokenScope.maybeOf(context) ??
         DesktopTokens.winForm;
+    // isDense 会让 InputDecorator 容器塌缩到行高并贴顶,这里用精确的垂直
+    // padding 把内容区垫到与控件等高,文字即垂直居中(style height:1.0 时
+    // 行高恰好等于 fontSize)。
+    final double padV = (t.controlHeight - t.fontSize) / 2;
 
     return SizedBox(
       height: t.controlHeight,
@@ -168,12 +172,15 @@ class _MaskedTextBoxState extends State<MaskedTextBox> {
               color: t.disabledForegroundColor,
             ),
             isDense: true,
+            visualDensity: VisualDensity.standard,
             border: InputBorder.none,
             enabledBorder: InputBorder.none,
             focusedBorder: InputBorder.none,
             disabledBorder: InputBorder.none,
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: t.controlPaddingX),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: t.controlPaddingX,
+              vertical: padV < 0 ? 0 : padV,
+            ),
           ),
           inputFormatters: [
             TextInputFormatter.withFunction((oldValue, newValue) {

@@ -122,7 +122,12 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
     final borderColor = !widget.enabled
         ? t.borderColor
         : (focused ? t.primaryColor : t.borderColor);
-    final fillColor = widget.enabled ? t.surfaceColor : t.controlDisabledColor;
+    // Read-only (non-editable) drop-downs use the control face color so they
+    // stand out from editable inputs; editable combo boxes stay white like a
+    // text box, and disabled keeps the disabled face color.
+    final fillColor = !widget.enabled
+        ? t.controlDisabledColor
+        : (widget.editable ? t.surfaceColor : t.controlColor);
 
     final dropdownItems = widget.items
         .map(
@@ -246,7 +251,12 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
   OverlayEntry? _overlayEntry;
 
   OverlayEntry _buildOverlayEntry(DesktopTokens t) {
-    final selectedIndex = widget.items.indexOf(widget.value as T);
+    // Guard null value: `widget.value as T` would throw when nothing is
+    // selected yet, which happens inside the overlay builder and prevents
+    // the drop-down from ever appearing.
+    final selectedIndex = widget.value == null
+        ? -1
+        : widget.items.indexOf(widget.value as T);
     final itemHeight = t.controlHeight;
     final maxItems = widget.items.length;
     final visibleItems = maxItems > 10 ? 10 : maxItems;
@@ -397,6 +407,10 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
         );
       },
       fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        // isDense 会让 InputDecorator 容器塌缩到行高并贴顶,这里用精确的垂直
+        // padding 把内容区垫到与控件等高,文字即垂直居中(style height:1.0 时
+        // 行高恰好等于 fontSize)。
+        final double padV = (t.controlHeight - t.fontSize) / 2;
         return Material(
           type: MaterialType.transparency,
           child: TextField(
@@ -421,11 +435,15 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
                 color: t.disabledForegroundColor,
               ),
               isDense: true,
+              visualDensity: VisualDensity.standard,
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
               disabledBorder: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: t.controlPaddingX),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: t.controlPaddingX,
+                vertical: padV < 0 ? 0 : padV,
+              ),
             ),
           ),
         );

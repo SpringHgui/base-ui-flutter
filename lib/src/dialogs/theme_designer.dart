@@ -924,7 +924,7 @@ class _ThemePresets {
     controlPressedColor: Color(0xFFD4D4D8),
     controlDisabledColor: Color(0xFFF4F4F5),
     disabledForegroundColor: Color(0xFF71717A),
-    fontFamily: 'Inter',
+    fontFamily: 'Microsoft YaHei',
     fontSize: 14.0,
     compactSpacing: 8.0,
     controlHeight: 36.0,

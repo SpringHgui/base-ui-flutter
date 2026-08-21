@@ -64,10 +64,10 @@ void main() {
       expect(find.text('Too short'), findsOneWidget);
     });
 
-    testWidgets('Item fires onSelect', (tester) async {
+    testWidgets('ListItem fires onSelect', (tester) async {
       var selected = 0;
       await tester.pumpWidget(
-        wrap(Item(text: 'Save', onSelect: () => selected++)),
+        wrap(ListItem(title: 'Save', onSelect: () => selected++)),
       );
       await tester.tap(find.text('Save'));
       expect(selected, 1);
@@ -154,9 +154,9 @@ void main() {
     testWidgets('Surface activates via keyboard Enter', (tester) async {
       var activated = 0;
       await tester.pumpWidget(
-        wrap(Item(text: 'Run', onSelect: () => activated++)),
+        wrap(Surface(onTap: () => activated++, child: const Text('Run'))),
       );
-      // Focus the item through keyboard traversal, then activate.
+      // Focus the surface through keyboard traversal, then activate.
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -334,7 +334,7 @@ void main() {
     testWidgets('DropDownButton opens menu', (tester) async {
       await tester.pumpWidget(wrap(DropDownButton(
         trigger: const Button(text: 'Menu', onPressed: null),
-        items: [Item(text: 'Edit', onSelect: null)],
+        items: [ListItem(title: 'Edit', onSelect: null)],
       )));
       await tester.tap(find.text('Menu'));
       await tester.pumpAndSettle();
@@ -345,7 +345,7 @@ void main() {
       var selected = 0;
       await tester.pumpWidget(wrap(DropDownButton(
         trigger: const Button(text: 'Menu', onPressed: null),
-        items: [Item(text: 'Edit', onSelect: () => selected++)],
+        items: [ListItem(title: 'Edit', onSelect: () => selected++)],
       )));
       await tester.tap(find.text('Menu'));
       await tester.pumpAndSettle();

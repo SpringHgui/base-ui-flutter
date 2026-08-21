@@ -74,9 +74,14 @@ const Map<String, String> enTranslations = {
   'button.tooltip': '── Button with WinToolTip ──',
   'button.tooltipMsg': 'This button has a helpful tooltip!',
   'button.hoverMe': 'Hover Me',
-  'button.focusNode': '── Button with External FocusNode ──',
-  'button.focusThis': 'Focus This',
-  'button.focusProgrammatic': 'Focus Programmatically',
+  'button.focusNode': '── Button Focus ──',
+  'button.focusDesc': 'A focused button shows a highlighted border (gained by a full click or the Tab key) and can be activated with Enter/Space. Focus state is shown live:',
+  'button.focusStatus': 'Focus: {status}',
+  'button.focusStatusFocused': 'Focused',
+  'button.focusStatusUnfocused': 'Not focused',
+  'button.focusThis': 'Target button',
+  'button.focusProgrammatic': 'Focus it programmatically',
+  'button.focusTabHint': 'Tip: press Tab to move focus to the target button above.',
   'button.autofocus': '── Autofocus Button ──',
   'button.autofocusDesc': 'The button below will be focused automatically:',
   'button.autofocused': 'Autofocused',
@@ -191,13 +196,6 @@ const Map<String, String> enTranslations = {
   'domain.friday': 'Friday',
   'domain.saturday': 'Saturday',
   'domain.sunday': 'Sunday',
-
-  // ── ListBox page ──
-  'listbox.singleSel': '── Single Selection ──',
-  'listbox.selected': 'Selected:',
-  'listbox.multiSel': '── Multi Selection ──',
-  'listbox.disabled': '── Disabled ListBox ──',
-  'listbox.customHeight': '── Custom Item Height ──',
 
   // ── CheckedListBox page ──
   'checkedlb.permissions': '── File Permissions ──',

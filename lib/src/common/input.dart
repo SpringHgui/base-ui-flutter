@@ -69,7 +69,9 @@ class Input extends StatefulWidget {
   final bool? selectAllOnFocus;
 
   /// Override the default content padding inside the input field.
-  /// When null, defaults to `EdgeInsets.symmetric(horizontal: t.controlPaddingX, vertical: 8)`.
+  /// When null, defaults to
+  /// `EdgeInsets.symmetric(horizontal: t.controlPaddingX, vertical: (t.controlHeight - t.fontSize) / 2)`
+  /// so that the text is vertically centered.
   final EdgeInsetsGeometry? contentPadding;
 
   @override
@@ -157,6 +159,10 @@ class _InputState extends State<Input> {
 
   /// 输入框本体(不含边框;边框由外层 DecoratedBox 提供)
   Widget _textField(DesktopTokens t) {
+    // isDense 会让 InputDecorator 容器塌缩到行高并贴顶,导致 textAlignVertical
+    // 失效。这里用精确的垂直 padding 把内容区垫到与控件等高,文字即垂直居中
+    // (style height:1.0 时行高恰好等于 fontSize)。
+    final double padV = (t.controlHeight - t.fontSize) / 2;
     return TextField(
       controller: _controller,
       focusNode: _focusNode,
@@ -185,13 +191,16 @@ class _InputState extends State<Input> {
           color: t.disabledForegroundColor,
         ),
         isDense: true,
+        visualDensity: VisualDensity.standard,
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
         disabledBorder: InputBorder.none,
-        contentPadding:
-            widget.contentPadding ??
-            EdgeInsets.symmetric(horizontal: t.controlPaddingX, vertical: 8),
+        contentPadding: widget.contentPadding ??
+            EdgeInsets.symmetric(
+              horizontal: t.controlPaddingX,
+              vertical: padV < 0 ? 0 : padV,
+            ),
       ),
     );
   }

@@ -74,9 +74,14 @@ const Map<String, String> jaTranslations = {
   'button.tooltip': '── ツールチップ付きボタン ──',
   'button.tooltipMsg': 'これは便利なツールチップです！',
   'button.hoverMe': 'ホバー',
-  'button.focusNode': '── 外部 FocusNode ボタン ──',
-  'button.focusThis': 'ここにフォーカス',
-  'button.focusProgrammatic': 'プログラムでフォーカス',
+  'button.focusNode': '── ボタンのフォーカス ──',
+  'button.focusDesc': 'フォーカス中のボタンは枠線がハイライトされ（クリック完了か Tab キーで獲得）、Enter/Space で実行できます。フォーカス状態をリアルタイム表示：',
+  'button.focusStatus': 'フォーカス状態: {status}',
+  'button.focusStatusFocused': 'フォーカス中',
+  'button.focusStatusUnfocused': 'フォーカスなし',
+  'button.focusThis': '対象ボタン',
+  'button.focusProgrammatic': 'プログラムでフォーカス（requestFocus）',
+  'button.focusTabHint': 'ヒント: Tab キーでも上の対象ボタンにフォーカスできます。',
   'button.autofocus': '── 自動フォーカスボタン ──',
   'button.autofocusDesc': '下のボタンは自動的にフォーカスされます：',
   'button.autofocused': '自動フォーカス',
@@ -191,13 +196,6 @@ const Map<String, String> jaTranslations = {
   'domain.friday': '金曜',
   'domain.saturday': '土曜',
   'domain.sunday': '日曜',
-
-  // ── ListBox page ──
-  'listbox.singleSel': '── 単一選択 ──',
-  'listbox.selected': '選択中:',
-  'listbox.multiSel': '── 複数選択 ──',
-  'listbox.disabled': '── 無効リストボックス ──',
-  'listbox.customHeight': '── カスタム項目高さ ──',
 
   // ── CheckedListBox page ──
   'checkedlb.permissions': '── ファイル権限 ──',

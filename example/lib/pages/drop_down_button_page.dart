@@ -24,23 +24,23 @@ class _DropDownButtonPageState extends State<DropDownButtonPage> {
               DropDownButton(
                 trigger: Button(text: 'Actions ▾', onPressed: null),
                 items: [
-                  Item(
-                    text: 'Edit',
+                  ListItem(
+                    title: 'Edit',
                     leading: const Icon(Icons.edit, size: 16),
                     onSelect: () => setState(() => _lastAction = 'Edit'),
                   ),
-                  Item(
-                    text: 'Duplicate',
+                  ListItem(
+                    title: 'Duplicate',
                     leading: const Icon(Icons.copy, size: 16),
                     onSelect: () => setState(() => _lastAction = 'Duplicate'),
                   ),
-                  Item(
-                    text: 'Archive',
+                  ListItem(
+                    title: 'Archive',
                     leading: const Icon(Icons.archive, size: 16),
                     onSelect: () => setState(() => _lastAction = 'Archive'),
                   ),
-                  Item(
-                    text: 'Delete',
+                  ListItem(
+                    title: 'Delete',
                     leading: const Icon(Icons.delete, size: 16),
                     enabled: false,
                     onSelect: null,
@@ -61,9 +61,9 @@ class _DropDownButtonPageState extends State<DropDownButtonPage> {
                   child: Text('Sort options', style: TextStyle(fontSize: 12)),
                 ),
                 items: [
-                  Item(text: 'Name', onSelect: null),
-                  Item(text: 'Date', selected: true, onSelect: null),
-                  Item(text: 'Size', onSelect: null),
+                  ListItem(title: 'Name', onSelect: null),
+                  ListItem(title: 'Date', selected: true, onSelect: null),
+                  ListItem(title: 'Size', onSelect: null),
                 ],
               ),
             ],

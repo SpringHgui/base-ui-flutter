@@ -6,7 +6,7 @@ import '../foundation/token_extensions.dart';
 import '../foundation/token_scope.dart';
 
 /// A headless interactive surface used as the building block for
-/// pressable / selectable controls (`Toggle`, `Tag`, `Item`, menu rows…).
+/// pressable / selectable controls (`Toggle`, `Tag`, `ListItem`, menu rows…).
 ///
 /// The core carries no visual code: the base fill, hover / pressed variants
 /// and the focus ring are all resolved from [DesktopTokens] (see
@@ -66,7 +66,7 @@ class Surface extends StatefulWidget {
   final String? semanticLabel;
 
   /// When set, the surface is announced as selected / toggled by
-  /// screen-readers (used by `Toggle`, `Item` and friends).
+  /// screen-readers (used by `Toggle`, `ListItem` and friends).
   final bool? selected;
 
   /// Token override; falls back to the enclosing [TokenScope], then to

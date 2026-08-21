@@ -74,9 +74,14 @@ const Map<String, String> zhTranslations = {
   'button.tooltip': '── 带工具提示的按钮 ──',
   'button.tooltipMsg': '这是一个有用的工具提示！',
   'button.hoverMe': '悬停我',
-  'button.focusNode': '── 外部 FocusNode 按钮 ──',
-  'button.focusThis': '聚焦此处',
-  'button.focusProgrammatic': '程序化聚焦',
+  'button.focusNode': '── 按钮焦点（Focus）──',
+  'button.focusDesc': '按钮获得焦点时边框会高亮（完整点击或按 Tab 键即可触发），此时可按 Enter/Space 执行。焦点状态实时显示：',
+  'button.focusStatus': '焦点状态：{status}',
+  'button.focusStatusFocused': '已获得',
+  'button.focusStatusUnfocused': '未获得',
+  'button.focusThis': '目标按钮',
+  'button.focusProgrammatic': '程序化聚焦（requestFocus）',
+  'button.focusTabHint': '提示：也可按 Tab 键将焦点移到上面的目标按钮。',
   'button.autofocus': '── 自动聚焦按钮 ──',
   'button.autofocusDesc': '下方按钮将自动获得焦点：',
   'button.autofocused': '自动聚焦',
@@ -191,13 +196,6 @@ const Map<String, String> zhTranslations = {
   'domain.friday': '周五',
   'domain.saturday': '周六',
   'domain.sunday': '周日',
-
-  // ── ListBox page ──
-  'listbox.singleSel': '── 单选模式 ──',
-  'listbox.selected': '已选择:',
-  'listbox.multiSel': '── 多选模式 ──',
-  'listbox.disabled': '── 禁用列表框 ──',
-  'listbox.customHeight': '── 自定义项高度 ──',
 
   // ── CheckedListBox page ──
   'checkedlb.permissions': '── 文件权限 ──',

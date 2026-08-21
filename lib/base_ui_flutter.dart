@@ -59,7 +59,6 @@ export 'src/common/kbd.dart';
 export 'src/common/separator.dart';
 export 'src/common/tag.dart';
 export 'src/common/field.dart';
-export 'src/common/item.dart';
 export 'src/common/marker.dart';
 export 'src/common/button_group.dart';
 export 'src/common/input_group.dart';
@@ -70,7 +69,6 @@ export 'src/common/toggle_switch.dart';
 export 'src/common/input_otp.dart';
 
 // ── Lists & Data Display ────────────────────────────────────────────────────
-export 'src/lists/list_box.dart';
 export 'src/lists/checked_list_box.dart';
 export 'src/lists/list_view.dart';
 export 'src/lists/list_item.dart';

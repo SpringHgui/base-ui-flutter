@@ -52,7 +52,12 @@ class FieldRow extends StatelessWidget {
         ] else ...[
           SizedBox(width: labelWidth + 10),
         ],
-        child,
+        // Wrap in a loose [Flexible]: a Row lays out non-flex children with an
+        // unbounded max width, which makes TextField-based children (Input)
+        // assert "InputDecorator cannot have an unbounded width" in debug
+        // builds. Flexible bounds the child to the remaining row width without
+        // forcing it to stretch, so fixed-width children keep their width.
+        Flexible(child: child),
       ],
     );
   }

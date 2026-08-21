@@ -14,9 +14,9 @@ void main() {
       expect(t.borderColor, const Color(0xFFACACAC));
       expect(t.surfaceColor, const Color(0xFFFFFFFF));
       expect(t.controlColor, const Color(0xFFF0F0F0));
-      expect(t.fontFamily, 'Segoe UI');
-      expect(t.fontSize, 12.0);
-      expect(t.controlHeight, 24.0);
+      expect(t.fontFamily, 'Microsoft YaHei');
+      expect(t.fontSize, 13.0);
+      expect(t.controlHeight, 28.0);
       expect(t.cornerRadius, 0.0);
     });
 

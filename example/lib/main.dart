@@ -17,12 +17,13 @@ import 'pages/numeric_up_down_page.dart';
 import 'pages/domain_up_down_page.dart';
 import 'pages/field_row_page.dart';
 import 'pages/icon_btn_page.dart';
+import 'pages/selectable_card_page.dart';
 import 'pages/surface_page.dart';
 
 // Lists
-import 'pages/list_box_page.dart';
 import 'pages/checked_list_box_page.dart';
 import 'pages/list_view_page.dart';
+import 'pages/list_item_page.dart';
 import 'pages/tree_view_page.dart';
 import 'pages/data_grid_view_page.dart';
 import 'pages/property_grid_page.dart';
@@ -30,6 +31,7 @@ import 'pages/property_grid_page.dart';
 // Menus
 import 'pages/menu_strip_page.dart';
 import 'pages/tool_strip_page.dart';
+import 'pages/toolbar_button_page.dart';
 import 'pages/context_menu_strip_page.dart';
 import 'pages/status_strip_page.dart';
 
@@ -37,6 +39,7 @@ import 'pages/status_strip_page.dart';
 import 'pages/date_time_picker_page.dart';
 import 'pages/month_calendar_page.dart';
 import 'pages/color_dialog_page.dart';
+import 'pages/dialog_box_page.dart';
 import 'pages/theme_designer_page.dart';
 
 // Data
@@ -59,7 +62,6 @@ import 'pages/kbd_page.dart';
 import 'pages/separator_page.dart';
 import 'pages/tag_page.dart';
 import 'pages/field_page.dart';
-import 'pages/item_page.dart';
 import 'pages/marker_page.dart';
 import 'pages/button_group_page.dart';
 import 'pages/input_group_page.dart';
@@ -93,6 +95,7 @@ import 'pages/check_row_page.dart';
 
 // Form
 import 'pages/search_input_page.dart';
+import 'pages/inline_editor_page.dart';
 
 // Data
 import 'pages/chart_page.dart';
@@ -191,23 +194,26 @@ final List<_PageEntry> _componentPages = [
   _PageEntry('cat.common', 'DomainUpDown', '$_pagesDir/domain_up_down_page.dart', (context) => const DomainUpDownPage()),
   _PageEntry('cat.common', 'FieldRow', '$_pagesDir/field_row_page.dart', (context) => const FieldRowPage()),
   _PageEntry('cat.common', 'IconBtn', '$_pagesDir/icon_btn_page.dart', (context) => const IconBtnPage()),
+  _PageEntry('cat.common', 'SelectableCard', '$_pagesDir/selectable_card_page.dart', (context) => const SelectableCardPage()),
   _PageEntry('cat.supplements', 'Surface', '$_pagesDir/surface_page.dart', (context) => const SurfacePage()),
   // Lists & Data
-  _PageEntry('cat.lists', 'ListBox', '$_pagesDir/list_box_page.dart', (context) => const ListBoxPage()),
   _PageEntry('cat.lists', 'CheckedListBox', '$_pagesDir/checked_list_box_page.dart', (context) => const CheckedListBoxPage()),
   _PageEntry('cat.lists', 'ListView', '$_pagesDir/list_view_page.dart', (context) => const ListViewPage()),
+  _PageEntry('cat.lists', 'ListItem', '$_pagesDir/list_item_page.dart', (context) => const ListItemPage()),
   _PageEntry('cat.lists', 'TreeView', '$_pagesDir/tree_view_page.dart', (context) => const TreeViewPage()),
   _PageEntry('cat.lists', 'DataGridView', '$_pagesDir/data_grid_view_page.dart', (context) => const DataGridViewPage()),
   _PageEntry('cat.lists', 'PropertyGrid', '$_pagesDir/property_grid_page.dart', (context) => const PropertyGridPage()),
   // Menus & Toolbars
   _PageEntry('cat.menus', 'MenuStrip', '$_pagesDir/menu_strip_page.dart', (context) => const MenuStripPage()),
   _PageEntry('cat.menus', 'ToolStrip', '$_pagesDir/tool_strip_page.dart', (context) => const ToolStripPage()),
+  _PageEntry('cat.menus', 'ToolbarButton', '$_pagesDir/toolbar_button_page.dart', (context) => const ToolbarButtonPage()),
   _PageEntry('cat.menus', 'ContextMenuStrip', '$_pagesDir/context_menu_strip_page.dart', (context) => const ContextMenuStripPage()),
   _PageEntry('cat.menus', 'StatusStrip', '$_pagesDir/status_strip_page.dart', (context) => const StatusStripPage()),
   // Dialogs
   _PageEntry('cat.dialogs', 'DateTimePicker', '$_pagesDir/date_time_picker_page.dart', (context) => const DateTimePickerPage()),
   _PageEntry('cat.dialogs', 'MonthCalendar', '$_pagesDir/month_calendar_page.dart', (context) => const MonthCalendarPage()),
   _PageEntry('cat.dialogs', 'ColorDialog', '$_pagesDir/color_dialog_page.dart', (context) => const ColorDialogPage()),
+  _PageEntry('cat.dialogs', 'DialogBox', '$_pagesDir/dialog_box_page.dart', (context) => const DialogBoxPage()),
   _PageEntry('cat.dialogs', 'ThemeDesigner', '$_pagesDir/theme_designer_page.dart', (context) => const ThemeDesignerPage()),
   // Data
   _PageEntry('cat.data', 'BindingNavigator', '$_pagesDir/binding_navigator_page.dart', (context) => const BindingNavigatorPage()),
@@ -226,7 +232,6 @@ final List<_PageEntry> _componentPages = [
   _PageEntry('cat.supplements', 'Separator', '$_pagesDir/separator_page.dart', (context) => const SeparatorPage()),
   _PageEntry('cat.supplements', 'Tag', '$_pagesDir/tag_page.dart', (context) => const TagPage()),
   _PageEntry('cat.supplements', 'Field', '$_pagesDir/field_page.dart', (context) => const FieldPage()),
-  _PageEntry('cat.supplements', 'Item', '$_pagesDir/item_page.dart', (context) => const ItemPage()),
   _PageEntry('cat.supplements', 'Marker', '$_pagesDir/marker_page.dart', (context) => const MarkerPage()),
   _PageEntry('cat.supplements', 'ButtonGroup', '$_pagesDir/button_group_page.dart', (context) => const ButtonGroupPage()),
   _PageEntry('cat.supplements', 'InputGroup', '$_pagesDir/input_group_page.dart', (context) => const InputGroupPage()),
@@ -257,6 +262,7 @@ final List<_PageEntry> _componentPages = [
   _PageEntry('cat.overlay', 'CheckRow', '$_pagesDir/check_row_page.dart', (context) => const CheckRowPage()),
   // Form
   _PageEntry('cat.form', 'SearchInput', '$_pagesDir/search_input_page.dart', (context) => const SearchInputPage()),
+  _PageEntry('cat.form', 'InlineEditor', '$_pagesDir/inline_editor_page.dart', (context) => const InlineEditorPage()),
   // Data
   _PageEntry('cat.data', 'Chart', '$_pagesDir/chart_page.dart', (context) => const ChartPage()),
   _PageEntry('cat.data', 'Pagination', '$_pagesDir/pagination_page.dart', (context) => const PaginationPage()),

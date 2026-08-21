@@ -5,8 +5,8 @@ import '../foundation/token_scope.dart';
 
 /// A WinForm-style checked list box.
 ///
-/// Combines [ListBox] and [CheckBox] - each item has a check box on the left
-/// and a text label on the right.
+/// A list whose rows each carry a [CheckBox] on the left and a text label on
+/// the right (checking is independent of row selection).
 class CheckedListBox<T> extends StatefulWidget {
   const CheckedListBox({
     super.key,

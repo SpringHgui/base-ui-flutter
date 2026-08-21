@@ -120,8 +120,8 @@ base_ui_flutter 提供**80+ 开箱即用的控件**——WinForm 级桌面控件
 |---|---|---|
 | **Foundation** | `Control`、`TokenScope`、`ResponsiveTokenScope`、`OverlayController`、`AnchoredOverlay`、`ModalOverlay`、`FocusTrap` | Token 基础设施、无头基类、覆盖层原语 |
 | **Common** | `Button`、`Input`、`Label`、`CheckBox`、`RadioButton`、`ComboBox`、`LinkLabel`、`MaskedTextBox`、`NumericUpDown`、`DomainUpDown` | WinForm 日常输入控件 |
-| **Supplements** | `TypeStyle`、`Kbd`、`Separator`、`Tag`、`Field`、`Item`、`Marker`、`ButtonGroup`、`InputGroup`、`Textarea`、`Toggle`、`ToggleGroup`、`ToggleSwitch`、`InputOtp` | 现代 Token 驱动输入补充组件 |
-| **Lists & Data** | `ListBox`、`CheckedListBox`、`WinListView`、`TreeView`、`DataGridView`、`PropertyGrid` | 列表/网格/树形展示，支持虚拟滚动 |
+| **Supplements** | `TypeStyle`、`Kbd`、`Separator`、`Tag`、`Field`、`Marker`、`ButtonGroup`、`InputGroup`、`Textarea`、`Toggle`、`ToggleGroup`、`ToggleSwitch`、`InputOtp` | 现代 Token 驱动输入补充组件 |
+| **Lists & Data** | `CheckedListBox`、`WinListView`、`ListItem`、`TreeView`、`DataGridView`、`PropertyGrid` | 列表/网格/树形展示，支持虚拟滚动 |
 | **Containers** | `GroupBox`、`TabControl`、`SplitContainer`、`Accordion`、`Collapsible`、`Sheet`、`SidePanel`、`Sidebar`、`Carousel` | 分组与布局容器 |
 | **Menus & Toolbars** | `MenuStrip`、`ContextMenuStrip`、`ToolStrip`、`StatusStrip` | 应用程序外壳 |
 | **Overlay** | `Popover`、`HoverCard`、`DropDownButton`、`MessageBox`、`Command`、`Toast`/`ToastHost`、`Direction`、`Empty` | 浮动/模态组件 |
@@ -152,7 +152,7 @@ lib/
 └── src/
     ├── foundation/             # Token、TokenScope、Control 基类、覆盖层原语
     ├── common/                 # Button、Input、Label、CheckBox、ComboBox、+ 补充组件
-    ├── lists/                  # ListBox、TreeView、DataGridView、PropertyGrid、…
+    ├── lists/                  # WinListView、TreeView、DataGridView、PropertyGrid、…
     ├── containers/             # GroupBox、TabControl、SplitContainer、Accordion、Sheet、…
     ├── menus/                  # MenuStrip、ToolStrip、StatusStrip、ContextMenuStrip
     ├── overlay/                # Popover、MessageBox、Command、Toast、HoverCard、…
