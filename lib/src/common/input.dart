@@ -23,6 +23,7 @@ class Input extends StatefulWidget {
     this.obscureToggle = false,
     this.selectAllOnFocus,
     this.contentPadding,
+    this.textAlign,
   });
 
   /// Controls the text being edited.
@@ -73,6 +74,10 @@ class Input extends StatefulWidget {
   /// `EdgeInsets.symmetric(horizontal: t.controlPaddingX, vertical: (t.controlHeight - t.fontSize) / 2)`
   /// so that the text is vertically centered.
   final EdgeInsetsGeometry? contentPadding;
+
+  /// Text alignment of the field content (e.g. center for a page-number box).
+  /// When null, defaults to [TextAlign.start].
+  final TextAlign? textAlign;
 
   @override
   State<Input> createState() => _InputState();
@@ -173,6 +178,7 @@ class _InputState extends State<Input> {
       keyboardType: widget.keyboardType,
       obscureText: widget.obscureText && (widget.obscureToggle ? _obscured : true),
       selectAllOnFocus: widget.selectAllOnFocus,
+      textAlign: widget.textAlign ?? TextAlign.start,
       cursorWidth: 1.0,
       cursorColor: t.primaryColor,
       textAlignVertical: TextAlignVertical.center,
