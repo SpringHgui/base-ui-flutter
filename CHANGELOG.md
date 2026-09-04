@@ -1,5 +1,8 @@
 ## Unreleased
 
+* 新增 `PageNavigator`(data)：输入跳页型分页器(Navicat 风格)——首页 / 上一页 / 页码输入框 / 下一页 / 尾页 + 可选「共 N 页」标签，仅一个输入框输入页码回车跳转，无页码按钮阵列；输入框自动过滤非数字字符，非法输入回弹当前页。页码输入框的垂直 padding 沿用 `Input` 默认居中算法（`(controlHeight - fontSize)/2`），避免 `isDense` 下 `textAlignVertical` 失效导致文字贴顶。`pageCount` 可为 `null`（总页数未知，按需 COUNT 模式）：「共 N 页」显示为「共 ? 页」，下一页/尾页保持可点，尾页按钮改触发 `onGoLast` 回调（由调用方执行 COUNT 后跳转）。与页码阵列型 `Pagination` 并存。
+* `Input` 新增 `textAlign` 参数：文本对齐方式透传给文本域（如页码输入框居中显示），默认 `TextAlign.start` 保持原行为。
+
 * **移除重复组件 `Item`(common)与 `ListBox`(lists)**：两者分别是 `ListItem` / `WinListView` 的功能子集，一并删除。
   - `Item` → `ListItem`：`DropDownButton.items` 公共类型改为 `List<ListItem>`（选中仍按下即触发，菜单关合逻辑不变）；`Item` 的 `text` 参数对应 `ListItem.title`，示例页 / quick_overview / 测试同步迁移；键盘激活回归测试改直接测 `Surface`。
   - `ListBox` → `WinListView`：list 模式参数完全一致，`WinListView` 额外提供 details/icon 模式、builder 模式、`onItemActivated` 双击激活与零延迟选中；删除 `list_box_page.dart` 示例页及其 main.dart / smoke_test 注册与三语 l10n 键；`CheckedListBox` 文档不再引用 `ListBox`。
