@@ -54,7 +54,7 @@
 
 * `MenuStrip` 下拉面板性能优化：弃用 `Material(elevation)`（阴影首次计算 / shader 编译是"首次展开慢、之后快"的主因）与冗余的 `CompositedTransformTarget`，改纯 `Container`（扁平 WinForm 风格），首次展开更跟手。
 
-* 新增 `FieldRow`：横向表单行（左 label 右对齐固定宽 + 右侧控件），经典桌面(Navicat/WinForms)表单布局；`label` 缺省时渲染同宽占位保持对齐。
+* 新增 `FieldRow`：横向表单行（左 label 右对齐固定宽 + 右侧控件），经典桌面(WinForms)表单布局；`label` 缺省时渲染同宽占位保持对齐。
 * 新增 `IconBtn`：轻量无边框图标按钮（工具栏/标题栏），悬停 ghost 高亮，可选 tooltip。命名避开 Flutter Material 的同名 `IconButton` 冲突。
 * `Input` 新增 `obscureText` 参数，支持密码框。
 

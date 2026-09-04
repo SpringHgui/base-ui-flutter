@@ -5,7 +5,7 @@ import '../foundation/token_scope.dart';
 import 'label.dart';
 
 /// A horizontal labeled form row: a right-aligned [label] (fixed width) on the
-/// left and an arbitrary control on the right — the classic desktop (Navicat /
+/// left and an arbitrary control on the right — the classic desktop (
 /// WinForms style) form layout.
 ///
 /// When [label] is omitted, a fixed-width spacer keeps the control aligned
