@@ -75,6 +75,7 @@ import 'pages/input_otp_page.dart';
 import 'pages/group_box_page.dart';
 import 'pages/tab_control_page.dart';
 import 'pages/split_container_page.dart';
+import 'pages/splitter_page.dart';
 import 'pages/accordion_page.dart';
 import 'pages/collapsible_page.dart';
 import 'pages/sheet_page.dart';
@@ -244,6 +245,7 @@ final List<_PageEntry> _componentPages = [
   _PageEntry('cat.containers', 'GroupBox', '$_pagesDir/group_box_page.dart', (context) => const GroupBoxPage()),
   _PageEntry('cat.containers', 'TabControl', '$_pagesDir/tab_control_page.dart', (context) => const TabControlPage()),
   _PageEntry('cat.containers', 'SplitContainer', '$_pagesDir/split_container_page.dart', (context) => const SplitContainerPage()),
+  _PageEntry('cat.containers', 'Splitter', '$_pagesDir/splitter_page.dart', (context) => const SplitterPage()),
   _PageEntry('cat.containers', 'Accordion', '$_pagesDir/accordion_page.dart', (context) => const AccordionPage()),
   _PageEntry('cat.containers', 'Collapsible', '$_pagesDir/collapsible_page.dart', (context) => const CollapsiblePage()),
   _PageEntry('cat.containers', 'Sheet', '$_pagesDir/sheet_page.dart', (context) => const SheetPage()),

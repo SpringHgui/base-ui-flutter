@@ -59,6 +59,7 @@ import 'package:example/pages/input_otp_page.dart';
 import 'package:example/pages/group_box_page.dart';
 import 'package:example/pages/tab_control_page.dart';
 import 'package:example/pages/split_container_page.dart';
+import 'package:example/pages/splitter_page.dart';
 import 'package:example/pages/accordion_page.dart';
 import 'package:example/pages/collapsible_page.dart';
 import 'package:example/pages/sheet_page.dart';
@@ -145,6 +146,7 @@ final List<(String, Widget Function())> _pages = [
   ('group_box', () => const GroupBoxPage()),
   ('tab_control', () => const TabControlPage()),
   ('split_container', () => const SplitContainerPage()),
+  ('splitter', () => const SplitterPage()),
   ('accordion', () => const AccordionPage()),
   ('collapsible', () => const CollapsiblePage()),
   ('sheet', () => const SheetPage()),

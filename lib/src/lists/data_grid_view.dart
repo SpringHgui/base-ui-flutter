@@ -121,6 +121,9 @@ class DataGridView extends StatefulWidget {
     this.onCellsSelected,
     this.anchorCell,
     this.editingCell,
+    this.onHeaderSort,
+    this.sortColumn,
+    this.sortAscending = true,
   });
 
   /// Column definitions.
@@ -247,6 +250,17 @@ class DataGridView extends StatefulWidget {
   /// horizontal padding so the editor fills the full cell width.
   final (int, int)? editingCell;
 
+  /// Fired when the user drags a header title sideways and releases:
+  /// dragging right sorts ascending, dragging left sorts descending.
+  /// Null disables header-drag sorting.
+  final void Function(int columnIndex, bool ascending)? onHeaderSort;
+
+  /// Column currently sorted, used only to draw the header sort arrow.
+  final int? sortColumn;
+
+  /// Direction of [sortColumn] (true = ascending).
+  final bool sortAscending;
+
   @override
   State<DataGridView> createState() => _DataGridViewState();
 }
@@ -259,6 +273,11 @@ class _DataGridViewState extends State<DataGridView> {
   bool _isDragging = false;
   (int, int)? _dragStartCell;
   (int, int)? _dragCurrentCell;
+
+  // ── 表头拖拽排序 ──
+  int? _headerDragCol;
+  double _headerDragDx = 0;
+  static const double _headerDragSortThreshold = 10.0;
 
   // ── 拖拽自动滚动 ──
   Timer? _autoScrollTimer;
@@ -541,6 +560,12 @@ class _DataGridViewState extends State<DataGridView> {
     final widths = widget.columnWidths;
     final w = widths != null ? widths[columnIndex] : col.width;
 
+    // 拖动中用当前方向做实时预示，松手前就能看到将应用的排序方向
+    final dragging = _headerDragCol == columnIndex;
+    final bool? arrowAsc = dragging
+        ? _headerDragDx >= 0
+        : (widget.sortColumn == columnIndex ? widget.sortAscending : null);
+
     Widget cell = Container(
       height: widget.rowHeight ?? t.controlHeight,
       padding: EdgeInsets.symmetric(
@@ -552,20 +577,57 @@ class _DataGridViewState extends State<DataGridView> {
           right: BorderSide(color: lineColor, width: t.borderWidth),
         ),
       ),
-      child: Text(
-        col.title,
-        style: TextStyle(
-          fontFamily: t.fontFamily,
-          fontSize: widget.headerFontSize ?? t.fontSize,
-          color: t.foregroundColor,
-          fontWeight: FontWeight.w600,
-          height: 1.0,
-          decoration: TextDecoration.none,
-        ),
-        overflow: TextOverflow.ellipsis,
-        maxLines: 1,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              col.title,
+              style: TextStyle(
+                fontFamily: t.fontFamily,
+                fontSize: widget.headerFontSize ?? t.fontSize,
+                color: t.foregroundColor,
+                fontWeight: FontWeight.w600,
+                height: 1.0,
+                decoration: TextDecoration.none,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+          if (arrowAsc != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: Icon(
+                arrowAsc ? Icons.arrow_upward : Icons.arrow_downward,
+                size: 12,
+                color: t.accentColor,
+              ),
+            ),
+        ],
       ),
     );
+
+    final onSort = widget.onHeaderSort;
+    if (onSort != null) {
+      cell = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (details) => setState(() {
+          _headerDragCol = columnIndex;
+          _headerDragDx = 0;
+        }),
+        onHorizontalDragUpdate: (details) =>
+            setState(() => _headerDragDx += details.delta.dx),
+        onHorizontalDragEnd: (details) => _finishHeaderDrag(onSort, columnIndex),
+        onHorizontalDragCancel: () => setState(() {
+          _headerDragCol = null;
+          _headerDragDx = 0;
+        }),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: cell,
+        ),
+      );
+    }
 
     Widget sized;
     if (w != null) {
@@ -585,7 +647,7 @@ class _DataGridViewState extends State<DataGridView> {
       children: [
         sized,
         Positioned(
-          right: -3,
+          right: 0,
           top: 0,
           bottom: 0,
           child: MouseRegion(
@@ -600,12 +662,27 @@ class _DataGridViewState extends State<DataGridView> {
                     .clamp(widget.minColumnWidth, double.infinity);
                 onResize(columnIndex, newWidth);
               },
-              child: const SizedBox(width: 6),
+              child: const SizedBox(width: 8),
             ),
           ),
         ),
       ],
     );
+  }
+
+  /// 表头拖拽结束：位移达标才应用排序（向右=升序、向左=降序），
+  /// 未达阈值视为误触，避免手抖一下就让宿主重查数据
+  void _finishHeaderDrag(
+    void Function(int columnIndex, bool ascending) onSort,
+    int columnIndex,
+  ) {
+    final dx = _headerDragDx;
+    setState(() {
+      _headerDragCol = null;
+      _headerDragDx = 0;
+    });
+    if (dx.abs() < _headerDragSortThreshold) return;
+    onSort(columnIndex, dx > 0);
   }
 
   // -- Data row -------------------------------------------------------------

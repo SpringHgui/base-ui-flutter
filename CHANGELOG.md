@@ -1,6 +1,12 @@
 ## Unreleased
 
-* 新增 `PageNavigator`(data)：输入跳页型分页器(Navicat 风格)——首页 / 上一页 / 页码输入框 / 下一页 / 尾页 + 可选「共 N 页」标签，仅一个输入框输入页码回车跳转，无页码按钮阵列；输入框自动过滤非数字字符，非法输入回弹当前页。页码输入框的垂直 padding 沿用 `Input` 默认居中算法（`(controlHeight - fontSize)/2`），避免 `isDense` 下 `textAlignVertical` 失效导致文字贴顶。`pageCount` 可为 `null`（总页数未知，按需 COUNT 模式）：「共 N 页」显示为「共 ? 页」，下一页/尾页保持可点，尾页按钮改触发 `onGoLast` 回调（由调用方执行 COUNT 后跳转）。与页码阵列型 `Pagination` 并存。
+* `DataGridView` 表头新增拖拽排序：`onHeaderSort`（按住列头标题横向拖动、松手即按该列排序，向右=升序、向左=降序，累计位移不足 10px 视为误触不触发）、`sortColumn` / `sortAscending`（在当前排序列标题右侧渲染 accent 色 ▲/▼ 箭头）。拖动过程中箭头会实时预示松手后将应用的方向；标题区光标为 `click`、列头右缘内侧 8px 仍为 `resizeColumn`（沿用 `columnWidths` / `onColumnResize` 改列宽），两者互不干扰。零动画、无 Material 水波纹。
+* 修复 `DataGridView` 列宽拖拽命中区过小：resize 手柄原先用 `Positioned(right: -3)` + 6px 让手柄探出列头单元格右缘，但 `RenderBox.hitTest` 要求触点先落在父盒子尺寸内，探出的半边永远点不到——实测只有紧贴边框内侧约 2px 能拖动。现改为贴右缘内侧 `right: 0` + 8px，整条命中区都可点（列头右缘外侧仍需按普通拖动排序或选中相邻列，与原 WinForms 行为一致）。
+
+* 新增 `Splitter`(containers)：独立的可拖动分隔条（WinForm `Splitter` 对应物）。与自带比例状态、只管两栏的 `SplitContainer` 不同，它只上报沿分割轴的**像素增量**（`onDrag`）配合 `onDragStart` / `onDragEnd`，由宿主决定改哪一栏、改多少，因此可直接用于三栏外壳、停靠面板等宽度由外部状态掌控的布局。默认 5px 宽的命中区内居中画 1px 发丝线，静止用 `borderColor`、hover / 拖动时用 `primaryColor`，光标随方向为 `resizeLeftRight` / `resizeUpDown`；零动画、无 Material 水波纹，取色链 `tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm`。
+
+* 新增 `StepBar`(misc)：向导式横向步骤条（编号圆标 + 步骤标题 + 连接短线），三态渲染（已完成=描边、当前=accent 实心、未到达=灰化），供导入 / 导出向导一类多页对话框标示当前进度；纯展示组件，翻页仍由宿主对话框按钮控制。零动画、无 Material 水波纹，取色链 `tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm`。
+* 新增 `PageNavigator`(data)：输入跳页型分页器——首页 / 上一页 / 页码输入框 / 下一页 / 尾页 + 可选「共 N 页」标签，仅一个输入框输入页码回车跳转，无页码按钮阵列；输入框自动过滤非数字字符，非法输入回弹当前页。页码输入框的垂直 padding 沿用 `Input` 默认居中算法（`(controlHeight - fontSize)/2`），避免 `isDense` 下 `textAlignVertical` 失效导致文字贴顶。`pageCount` 可为 `null`（总页数未知，按需 COUNT 模式）：「共 N 页」显示为「共 ? 页」，下一页/尾页保持可点，尾页按钮改触发 `onGoLast` 回调（由调用方执行 COUNT 后跳转）。与页码阵列型 `Pagination` 并存。
 * `Input` 新增 `textAlign` 参数：文本对齐方式透传给文本域（如页码输入框居中显示），默认 `TextAlign.start` 保持原行为。
 
 * **移除重复组件 `Item`(common)与 `ListBox`(lists)**：两者分别是 `ListItem` / `WinListView` 的功能子集，一并删除。

@@ -122,7 +122,7 @@ base_ui_flutter 提供**80+ 开箱即用的控件**——WinForm 级桌面控件
 | **Common** | `Button`、`Input`、`Label`、`CheckBox`、`RadioButton`、`ComboBox`、`LinkLabel`、`MaskedTextBox`、`NumericUpDown`、`DomainUpDown` | WinForm 日常输入控件 |
 | **Supplements** | `TypeStyle`、`Kbd`、`Separator`、`Tag`、`Field`、`Marker`、`ButtonGroup`、`InputGroup`、`Textarea`、`Toggle`、`ToggleGroup`、`ToggleSwitch`、`InputOtp` | 现代 Token 驱动输入补充组件 |
 | **Lists & Data** | `CheckedListBox`、`WinListView`、`ListItem`、`TreeView`、`DataGridView`、`PropertyGrid` | 列表/网格/树形展示，支持虚拟滚动 |
-| **Containers** | `GroupBox`、`TabControl`、`SplitContainer`、`Accordion`、`Collapsible`、`Sheet`、`SidePanel`、`Sidebar`、`Carousel` | 分组与布局容器 |
+| **Containers** | `GroupBox`、`TabControl`、`SplitContainer`、`Splitter`、`Accordion`、`Collapsible`、`Sheet`、`SidePanel`、`Sidebar`、`Carousel` | 分组与布局容器 |
 | **Menus & Toolbars** | `MenuStrip`、`ContextMenuStrip`、`ToolStrip`、`StatusStrip` | 应用程序外壳 |
 | **Overlay** | `Popover`、`HoverCard`、`DropDownButton`、`MessageBox`、`Command`、`Toast`/`ToastHost`、`Direction`、`Empty` | 浮动/模态组件 |
 | **Dialogs** | `ColorDialog`、`DateTimePicker`、`MonthCalendar`、`ThemeDesigner` | 选择器对话框 |
