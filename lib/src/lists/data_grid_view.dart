@@ -274,10 +274,22 @@ class _DataGridViewState extends State<DataGridView> {
   (int, int)? _dragStartCell;
   (int, int)? _dragCurrentCell;
 
-  // ── 表头拖拽排序 ──
+  // ── 表头拖拽排序(Listener 跟指针) ──
+  int? _sortDragPointer;
+  int? _sortDragCol;
+  double _sortDragStartX = 0;
+  double _sortDragDx = 0;
+  // 位移达标后在表头上实时预示的方向箭头所属列(null = 未进入拖动)
   int? _headerDragCol;
-  double _headerDragDx = 0;
-  static const double _headerDragSortThreshold = 10.0;
+  bool _headerDragAsc = true;
+  // 按下点起算的总位移;8px 可过滤「按住抖一下」,有意拖动(通常 30px+)都会生效
+  static const double _headerDragSortThreshold = 8.0;
+
+  // ── 表头拖拽改列宽(Listener 跟指针) ──
+  int? _resizePointer;
+  int? _resizeCol;
+  double _resizeStartX = 0;
+  double _resizeStartWidth = 0;
 
   // ── 拖拽自动滚动 ──
   Timer? _autoScrollTimer;
@@ -563,7 +575,7 @@ class _DataGridViewState extends State<DataGridView> {
     // 拖动中用当前方向做实时预示，松手前就能看到将应用的排序方向
     final dragging = _headerDragCol == columnIndex;
     final bool? arrowAsc = dragging
-        ? _headerDragDx >= 0
+        ? _headerDragAsc
         : (widget.sortColumn == columnIndex ? widget.sortAscending : null);
 
     Widget cell = Container(
@@ -609,22 +621,27 @@ class _DataGridViewState extends State<DataGridView> {
 
     final onSort = widget.onHeaderSort;
     if (onSort != null) {
+      // 表头排序拖动走 Listener 直接跟指针,不走手势竞技场的拖拽回调结算:
+      // 真机上「按住列头左右拖」没有反应,而同样的操作在 widget 测试里
+      // (含斜拖、拖出列宽、快速跳变、按下停顿、1px 慢拖)都能正常结算,
+      // 差异只可能出在竞技场归属上。Listener 的命中路径在 pointer down 时
+      // 缓存,整段拖动都收得到事件,与谁赢得竞技场无关。
+      // 里层 GestureDetector 的空 onHorizontalDragStart 仍然保留:它唯一的
+      // 作用是占住竞技场,避免拖列头时外层横向 SingleChildScrollView 跟着滚。
       cell = GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (details) => setState(() {
-          _headerDragCol = columnIndex;
-          _headerDragDx = 0;
-        }),
-        onHorizontalDragUpdate: (details) =>
-            setState(() => _headerDragDx += details.delta.dx),
-        onHorizontalDragEnd: (details) => _finishHeaderDrag(onSort, columnIndex),
-        onHorizontalDragCancel: () => setState(() {
-          _headerDragCol = null;
-          _headerDragDx = 0;
-        }),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: cell,
+        onHorizontalDragStart: (_) {},
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (event) =>
+              _onSortDragStart(event, columnIndex),
+          onPointerMove: _onSortDragMove,
+          onPointerUp: (event) => _onSortDragEnd(event, onSort),
+          onPointerCancel: (event) => _onSortDragEnd(event, onSort),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: cell,
+          ),
         ),
       );
     }
@@ -652,17 +669,20 @@ class _DataGridViewState extends State<DataGridView> {
           bottom: 0,
           child: MouseRegion(
             cursor: SystemMouseCursors.resizeColumn,
+            // 与表头排序拖动同理:用 Listener 跟指针,外层 GestureDetector
+            // 只负责占住手势竞技场(否则拖边框时外层横向滚动会跟着走)。
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onHorizontalDragUpdate: (details) {
-                final currentWidth =
-                    widget.columnWidths?[columnIndex] ?? col.width;
-                if (currentWidth == null) return;
-                final newWidth = (currentWidth + details.delta.dx)
-                    .clamp(widget.minColumnWidth, double.infinity);
-                onResize(columnIndex, newWidth);
-              },
-              child: const SizedBox(width: 8),
+              onHorizontalDragStart: (_) {},
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (event) =>
+                    _onResizeDragStart(event, columnIndex, w),
+                onPointerMove: _onResizeDragMove,
+                onPointerUp: _onResizeDragEnd,
+                onPointerCancel: _onResizeDragEnd,
+                child: const SizedBox(width: 8),
+              ),
             ),
           ),
         ),
@@ -670,19 +690,90 @@ class _DataGridViewState extends State<DataGridView> {
     );
   }
 
-  /// 表头拖拽结束：位移达标才应用排序（向右=升序、向左=降序），
-  /// 未达阈值视为误触，避免手抖一下就让宿主重查数据
-  void _finishHeaderDrag(
-    void Function(int columnIndex, bool ascending) onSort,
-    int columnIndex,
-  ) {
-    final dx = _headerDragDx;
-    setState(() {
-      _headerDragCol = null;
-      _headerDragDx = 0;
-    });
+  // -- 表头拖拽改列宽 --------------------------------------------------------
+
+  void _onResizeDragStart(
+      PointerDownEvent event, int columnIndex, double? currentWidth) {
+    if (event.buttons != kPrimaryMouseButton ||
+        _resizePointer != null ||
+        currentWidth == null) {
+      return;
+    }
+    _resizePointer = event.pointer;
+    _resizeCol = columnIndex;
+    _resizeStartX = event.position.dx;
+    _resizeStartWidth = currentWidth;
+  }
+
+  void _onResizeDragMove(PointerMoveEvent event) {
+    if (event.pointer != _resizePointer) return;
+    final col = _resizeCol;
+    final onResize = widget.onColumnResize;
+    if (col == null || onResize == null) return;
+    // 用按下点起算的总位移,而非逐次 delta 累加:事件被合并/丢弃时不会漂移
+    onResize(
+      col,
+      (_resizeStartWidth + (event.position.dx - _resizeStartX))
+          .clamp(widget.minColumnWidth, double.infinity),
+    );
+  }
+
+  void _onResizeDragEnd(PointerEvent event) {
+    if (event.pointer != _resizePointer) return;
+    _resizePointer = null;
+    _resizeCol = null;
+  }
+
+  /// 表头拖拽排序:按下即登记,位移达标才进入「拖动中」并预示方向。
+  void _onSortDragStart(PointerDownEvent event, int columnIndex) {
+    if (event.buttons != kPrimaryMouseButton || _sortDragPointer != null) {
+      return;
+    }
+    _sortDragPointer = event.pointer;
+    _sortDragCol = columnIndex;
+    _sortDragStartX = event.position.dx;
+    _sortDragDx = 0;
+  }
+
+  void _onSortDragMove(PointerMoveEvent event) {
+    if (event.pointer != _sortDragPointer) return;
+    final col = _sortDragCol;
+    if (col == null) return;
+    final dx = event.position.dx - _sortDragStartX;
+    _sortDragDx = dx;
     if (dx.abs() < _headerDragSortThreshold) return;
-    onSort(columnIndex, dx > 0);
+    final asc = dx > 0;
+    // 只在预示状态真的变化时重建,避免每次 pointer move 全表头 setState
+    if (_headerDragCol != col || _headerDragAsc != asc) {
+      setState(() {
+        _headerDragCol = col;
+        _headerDragAsc = asc;
+      });
+    }
+  }
+
+  /// 松手(或指针被系统收回)即结算:位移达标才应用排序，
+  /// 未达阈值视为误触，避免手抖一下就让宿主重查数据。
+  void _onSortDragEnd(PointerEvent event,
+      void Function(int columnIndex, bool ascending) onSort) {
+    if (event.pointer != _sortDragPointer) return;
+    final col = _sortDragCol;
+    final dx = _sortDragDx;
+    _sortDragPointer = null;
+    _sortDragCol = null;
+    _sortDragDx = 0;
+    if (_headerDragCol != null) {
+      setState(() {
+        _headerDragCol = null;
+      });
+    }
+    final applied = col != null && dx.abs() >= _headerDragSortThreshold;
+    // TEMP 诊断日志，排查「拖动排序没反应」后删除
+    debugPrint(
+        '[grid-sort] col=$col dx=${dx.toStringAsFixed(1)} '
+        'threshold=$_headerDragSortThreshold applied=$applied');
+    if (col == null || !applied) return;
+    onSort(col, dx > 0);
   }
 
   // -- Data row -------------------------------------------------------------

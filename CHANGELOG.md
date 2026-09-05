@@ -1,7 +1,8 @@
 ## Unreleased
 
-* `DataGridView` 表头新增拖拽排序：`onHeaderSort`（按住列头标题横向拖动、松手即按该列排序，向右=升序、向左=降序，累计位移不足 10px 视为误触不触发）、`sortColumn` / `sortAscending`（在当前排序列标题右侧渲染 accent 色 ▲/▼ 箭头）。拖动过程中箭头会实时预示松手后将应用的方向；标题区光标为 `click`、列头右缘内侧 8px 仍为 `resizeColumn`（沿用 `columnWidths` / `onColumnResize` 改列宽），两者互不干扰。零动画、无 Material 水波纹。
-* 修复 `DataGridView` 列宽拖拽命中区过小：resize 手柄原先用 `Positioned(right: -3)` + 6px 让手柄探出列头单元格右缘，但 `RenderBox.hitTest` 要求触点先落在父盒子尺寸内，探出的半边永远点不到——实测只有紧贴边框内侧约 2px 能拖动。现改为贴右缘内侧 `right: 0` + 8px，整条命中区都可点（列头右缘外侧仍需按普通拖动排序或选中相邻列，与原 WinForms 行为一致）。
+* `DataGridView` 表头新增拖拽排序：`onHeaderSort`（按住列头标题横向拖动、松手即按该列排序，向右=升序、向左=降序）、`sortColumn` / `sortAscending`（在当前排序列标题右侧渲染 accent 色 ▲/▼ 箭头）。判定用「按下点 → 松开点」的横向总距离，不与起手阈值叠加，不足 8px 视为按住抖动不触发。拖动过程中箭头实时预示松手后将应用的方向；标题区光标为 `click`、列头右缘内侧 8px 为 `resizeColumn`（沿用 `columnWidths` / `onColumnResize` 改列宽），两者互不干扰。零动画、无 Material 水波纹。
+* `DataGridView` 表头两种拖拽（拖标题排序 / 拖边框改列宽）改由 `Listener` 直接跟指针结算，不再依赖 `GestureDetector` 的拖拽回调。原因：真机上「按住列头左右拖」没有任何反应，而同样的操作在 widget 测试里（斜拖、起手先纵向抖一下、拖出整个网格、按下停顿 300ms、1px 慢拖 60 步）全部能结算——差异只可能出在手势竞技场的归属上。`Listener` 的命中路径在 pointer down 时缓存，整段拖动都收得到事件，与谁赢竞技场无关。每个拖拽区仍保留一层只注册空 `onHorizontalDragStart` 的 `GestureDetector`，唯一作用是占住竞技场，使拖列头不会连带外层横向 `SingleChildScrollView` 一起滚。顺带把改列宽从「逐帧 `delta.dx` 累加」换成「按下时列宽 + 按下点起算的总位移」，事件被合并 / 丢弃时宽度不再漂移；预示箭头改为位移达到阈值时才出现，且仅在预示状态真的变化时 `setState`。
+* 修复 `DataGridView` 列宽拖拽命中区过小：resize 手柄原先用 `Positioned(right: -3)` + 6px 让手柄探出列头单元格右缘，但 `RenderBox.hitTest` 要求触点先落在父盒子尺寸内，探出的半边永远点不到——实测只有紧贴边框内侧约 2px 能拖动。现改为贴右缘内侧 `right: 0` + 8px，整条命中区都可点。
 
 * 新增 `Splitter`(containers)：独立的可拖动分隔条（WinForm `Splitter` 对应物）。与自带比例状态、只管两栏的 `SplitContainer` 不同，它只上报沿分割轴的**像素增量**（`onDrag`）配合 `onDragStart` / `onDragEnd`，由宿主决定改哪一栏、改多少，因此可直接用于三栏外壳、停靠面板等宽度由外部状态掌控的布局。默认 5px 宽的命中区内居中画 1px 发丝线，静止用 `borderColor`、hover / 拖动时用 `primaryColor`，光标随方向为 `resizeLeftRight` / `resizeUpDown`；零动画、无 Material 水波纹，取色链 `tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm`。
 
