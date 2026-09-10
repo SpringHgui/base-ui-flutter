@@ -346,21 +346,32 @@ class _TabControlState extends State<TabControl> {
           ],
         ),
         if (hasBody)
-          DecoratedBox(
-            decoration: BoxDecoration(
-              // Page colour matches the selected tab so they read as one
-              // surface; the top border is owned by the strip hairline.
-              color: widget.selectedTabColor ?? t.surfaceColor,
-              border: Border(
-                left: BorderSide(color: t.borderColor, width: t.borderWidth),
-                right: BorderSide(color: t.borderColor, width: t.borderWidth),
-                bottom: BorderSide(color: t.borderColor, width: t.borderWidth),
+          // Flexible(loose) rather than a plain child: since Flutter 3.47 a
+          // vertical Column lays out its non-flex children with an *unbounded*
+          // main axis, so any page body that needs an explicit height (code
+          // editor, viewport) asserts during layout and the frame dies. As a
+          // loose flex child the panel fills the remaining height when the
+          // TabControl is itself height-bounded (WinForms display rectangle),
+          // and still shrink-wraps its content in unbounded contexts such as
+          // [DialogBox]'s IntrinsicHeight.
+          Flexible(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                // Page colour matches the selected tab so they read as one
+                // surface; the top border is owned by the strip hairline.
+                color: widget.selectedTabColor ?? t.surfaceColor,
+                border: Border(
+                  left: BorderSide(color: t.borderColor, width: t.borderWidth),
+                  right: BorderSide(color: t.borderColor, width: t.borderWidth),
+                  bottom: BorderSide(
+                      color: t.borderColor, width: t.borderWidth),
+                ),
               ),
-            ),
-            child: Padding(
-              padding: widget.contentPadding ??
-                  EdgeInsets.only(top: t.compactSpacing * 2),
-              child: widget.tabs[index].child ?? const SizedBox.shrink(),
+              child: Padding(
+                padding: widget.contentPadding ??
+                    EdgeInsets.only(top: t.compactSpacing * 2),
+                child: widget.tabs[index].child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
       ],

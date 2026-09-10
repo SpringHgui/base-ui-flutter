@@ -14,6 +14,7 @@ class Empty extends StatelessWidget {
     this.description,
     this.action,
     this.compact = false,
+    this.maxWidth,
     this.tokens,
   });
 
@@ -35,6 +36,11 @@ class Empty extends StatelessWidget {
   /// Reduces spacing for inline empty states.
   final bool compact;
 
+  /// Caps the content column so long text (e.g. a raw database error) wraps
+  /// and stays centered instead of stretching across the container and pushing
+  /// [action] to the far edge. `null` keeps the unbounded behaviour.
+  final double? maxWidth;
+
   /// Token override; falls back to the enclosing [TokenScope], then to
   /// [DesktopTokens.winForm].
   final DesktopTokens? tokens;
@@ -46,47 +52,50 @@ class Empty extends StatelessWidget {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(t.controlPaddingX * 2 * scale),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null)
-              IconTheme(
-                data: IconThemeData(
-                  size: t.fontSize * 3.2 * scale,
-                  color: iconColor ?? t.mutedForegroundColor,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null)
+                IconTheme(
+                  data: IconThemeData(
+                    size: t.fontSize * 3.2 * scale,
+                    color: iconColor ?? t.mutedForegroundColor,
+                  ),
+                  child: icon!,
                 ),
-                child: icon!,
-              ),
-            SizedBox(height: t.compactSpacing * (compact ? 2 : 3)),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: t.fontFamily,
-                fontSize: t.fontSize * 1.125 * scale,
-                fontWeight: FontWeight.w600,
-                color: t.foregroundColor,
-                height: 1.3,
-              ),
-            ),
-            if (description != null) ...[
-              SizedBox(height: t.compactSpacing),
+              SizedBox(height: t.compactSpacing * (compact ? 2 : 3)),
               Text(
-                description!,
+                title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: t.fontFamily,
-                  fontSize: t.fontSize * 0.875 * scale,
-                  color: t.mutedForegroundColor,
-                  height: 1.4,
+                  fontSize: t.fontSize * 1.125 * scale,
+                  fontWeight: FontWeight.w600,
+                  color: t.foregroundColor,
+                  height: 1.3,
                 ),
               ),
+              if (description != null) ...[
+                SizedBox(height: t.compactSpacing),
+                Text(
+                  description!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: t.fontFamily,
+                    fontSize: t.fontSize * 0.875 * scale,
+                    color: t.mutedForegroundColor,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+              if (action != null) ...[
+                SizedBox(height: t.controlPaddingX * scale),
+                action!,
+              ],
             ],
-            if (action != null) ...[
-              SizedBox(height: t.controlPaddingX * scale),
-              action!,
-            ],
-          ],
+          ),
         ),
       ),
     );

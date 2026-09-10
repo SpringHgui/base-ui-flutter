@@ -228,12 +228,29 @@ class _ToolStripState extends State<ToolStrip> {
           padding: EdgeInsets.symmetric(
               horizontal: t.compactSpacing, vertical: t.compactSpacing),
           child: Row(
+            // 左侧按钮组放进横向滚动区（Flexible 撑满剩余空间、把 trailing
+            // 钉在右缘）：面板变窄 / trailing 展开时按钮可横向滚动，而不是
+            // 撑爆 Row 触发 RenderFlex overflow；trailing 保持自然宽度靠右。
             children: [
-              for (final item in widget.items) _buildItem(item, t),
+              Flexible(
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context)
+                      .copyWith(scrollbars: false),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final item in widget.items) _buildItem(item, t),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               if (hasTrailing) ...[
-                const Spacer(),
                 if (widget.trailing != null) widget.trailing!,
-                for (final item in widget.trailingItems ?? const <ToolStripItem>[])
+                for (final item
+                    in widget.trailingItems ?? const <ToolStripItem>[])
                   _buildItem(item, t),
               ],
             ],

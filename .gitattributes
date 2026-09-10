@@ -1,0 +1,6 @@
+# Flutter 生成的平台注册文件：每次 flutter pub get / build 都会以 LF 重写覆盖。
+# 系统级 core.autocrlf=true 会把它们检出成 CRLF，于是「内容没变」的文件被 git status
+# 标成已修改（git diff 却是空的），提交时混入无关改动。显式声明 eol=lf 固定换行策略。
+/example/linux/flutter/generated_plugin* text eol=lf
+/example/windows/flutter/generated_plugin* text eol=lf
+/example/macos/Flutter/GeneratedPluginRegistrant.swift text eol=lf

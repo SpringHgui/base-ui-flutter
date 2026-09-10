@@ -18,6 +18,8 @@ class Splitter extends StatefulWidget {
     required this.onDrag,
     this.orientation = Axis.horizontal,
     this.thickness = 5,
+    this.showHairline = true,
+    this.showHoverHighlight = true,
     this.onDragStart,
     this.onDragEnd,
     this.tokens,
@@ -35,6 +37,26 @@ class Splitter extends StatefulWidget {
 
   /// Hit-test thickness of the handle; the visible hairline stays 1px centered.
   final double thickness;
+
+  /// Whether the resting 1px hairline is painted (defaults to `true`).
+  ///
+  /// Set it to `false` when the two panes are meant to sit **flush** against
+  /// each other and the handle is overlaid on the seam instead of occupying
+  /// layout space: the strip draws nothing at rest, so the panes never look
+  /// separated by a gap or framed by a border. Hover / drag feedback is a
+  /// separate concern — see [showHoverHighlight].
+  final bool showHairline;
+
+  /// Whether the hairline switches to [DesktopTokens.primaryColor] while the
+  /// pointer is over the handle or it is being dragged (defaults to `true`).
+  ///
+  /// Turn it off to keep the seam visually inert: with [showHairline] `true`
+  /// the hairline stays a static `borderColor`, and with it `false` nothing is
+  /// painted in any state. The handle keeps its resize cursor
+  /// (`resizeLeftRight` / `resizeUpDown`) and its full hit-test strip, so it is
+  /// still grabbable; no pointer-enter/exit callbacks are registered at all,
+  /// so hovering an inert handle costs no rebuild.
+  final bool showHoverHighlight;
 
   final VoidCallback? onDragStart;
 
@@ -73,8 +95,12 @@ class _SplitterState extends State<Splitter> {
       widget.onDragStart?.call();
     }
 
+    // 静止态画不画线 = showHairline;hover / 拖动换成 accent 色 = showHoverHighlight
+    final active = widget.showHoverHighlight && (_hovered || _dragging);
     final line = ColoredBox(
-      color: _hovered || _dragging ? t.primaryColor : t.borderColor,
+      color: active
+          ? t.primaryColor
+          : (widget.showHairline ? t.borderColor : Colors.transparent),
       child: SizedBox(
         width: horizontal ? t.borderWidth : double.infinity,
         height: horizontal ? double.infinity : t.borderWidth,
@@ -85,8 +111,13 @@ class _SplitterState extends State<Splitter> {
       cursor: horizontal
           ? SystemMouseCursors.resizeLeftRight
           : SystemMouseCursors.resizeUpDown,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      // 关掉高亮后没有任何视觉依赖 hover 状态 → 不注册回调,悬停零重建
+      onEnter: widget.showHoverHighlight
+          ? (_) => setState(() => _hovered = true)
+          : null,
+      onExit: widget.showHoverHighlight
+          ? (_) => setState(() => _hovered = false)
+          : null,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onHorizontalDragStart: horizontal ? (_) => start() : null,
