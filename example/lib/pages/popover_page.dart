@@ -104,6 +104,25 @@ class PopoverPage extends StatelessWidget {
               ),
             ],
           ),
+          DemoSection(
+            title: 'Scrollable (long lists)',
+            children: [
+              Popover(
+                width: 220,
+                maxHeight: 200,
+                scrollable: true,
+                trigger: Button(text: 'Open long list', onPressed: null),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 1; i <= 30; i++)
+                      ListItem(title: 'Item $i', onSelect: null),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

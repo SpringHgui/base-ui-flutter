@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../foundation/desktop_tokens.dart';
 import '../foundation/overlay.dart';
 import '../foundation/token_scope.dart';
+import '../scroll/scroll_bar.dart';
 
 /// A trigger-bound floating panel — the counterpart of the shadcn
 /// "Popover". Opens on click, closes on outside click / Escape / scroll.
@@ -22,6 +23,8 @@ class Popover extends StatelessWidget {
     this.closeOnScroll = true,
     this.onOpenChanged,
     this.tokens,
+    this.scrollable = false,
+    this.maxHeight,
   });
 
   /// External controller; when `null` an internal one is managed.
@@ -50,6 +53,20 @@ class Popover extends StatelessWidget {
   /// [DesktopTokens.winForm].
   final DesktopTokens? tokens;
 
+  /// Makes over-tall content scroll inside the panel instead of running off
+  /// the screen — the fix for "选不中后面的项" on long lists (e.g. a connection
+  /// picker with dozens of entries).
+  ///
+  /// The scroll view sits *inside* the bordered panel, so the background and
+  /// border stay fixed while only the rows move.
+  final bool scrollable;
+
+  /// Upper bound for the panel height in logical pixels.
+  ///
+  /// `null` means "as tall as the viewport allows, never taller" when
+  /// [scrollable] is set; otherwise the panel is unbounded.
+  final double? maxHeight;
+
   @override
   Widget build(BuildContext context) {
     final t = tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
@@ -61,6 +78,9 @@ class Popover extends StatelessWidget {
       gap: gap,
       closeOnScroll: closeOnScroll,
       onOpenChanged: onOpenChanged,
+      // A scrollable panel must know its cap before layout happens; passing
+      // `infinity` lets the surface clamp it to the viewport height.
+      maxHeight: maxHeight ?? (scrollable ? double.infinity : null),
       content: Container(
         width: width,
         padding: padding,
@@ -76,7 +96,43 @@ class Popover extends StatelessWidget {
             ),
           ],
         ),
-        child: content,
+        child: scrollable ? _PopoverScrollBody(child: content) : content,
+      ),
+    );
+  }
+}
+
+/// The scrolling body shared by every scrollable popover.
+///
+/// Keeps its own [ScrollController] so the token-styled [ScrollBar] can be
+/// wired to it (a scrollbar without an explicit controller cannot find the
+/// descendant scrollable). No animation, no Material ripple — matching the
+/// rest of the desktop control set.
+class _PopoverScrollBody extends StatefulWidget {
+  const _PopoverScrollBody({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_PopoverScrollBody> createState() => _PopoverScrollBodyState();
+}
+
+class _PopoverScrollBodyState extends State<_PopoverScrollBody> {
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScrollBar(
+      controller: _controller,
+      child: SingleChildScrollView(
+        controller: _controller,
+        child: widget.child,
       ),
     );
   }

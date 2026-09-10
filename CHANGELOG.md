@@ -1,5 +1,8 @@
 ## Unreleased
 
+* `Popover` 新增 `scrollable` / `maxHeight`：内容过高时在**面板内部**滚动，而不是把整列铺出屏幕。修复前连接选择器这类下拉（db_lite 查询页「选择连接」有几十个连接）会把全部条目一次性渲染出来——面板高过视口顶部/底部被裁掉，且后面的条目根本选不到。`scrollable: true` 时滚动视图位于带边框的面板**内部**（背景与边框固定不动，只有行在动），`maxHeight` 缺省表示「最多占满视口、绝不超出」，显式给值则按值封顶（仍会与视口取小）。列表用 `ListItem`、`crossAxisAlignment: stretch` 的 `Column` 直接放即可，滚动条沿用控件库 token 化 `ScrollBar`；零动画、无 Material 水波纹。回归测试见 `test/modern_components_test.dart`（「Popover 内容过高时在面板内滚动」+ 未开启时的无界行为各一条），示例页新增 Scrollable 分组。
+* `AnchoredOverlay` 新增 `maxHeight`（`Popover` 的底层实现）：在**布局之前**用 `MediaQuery` 把上限与视口高度取小（`double.infinity` = 只受视口约束），并把 `ConstrainedBox` 套在被 `_contentKey` 测量的那层 `Container` 上——这样 `_remeasure` 量到的就是封顶后的尺寸，贴边夹取与 `OverlaySide.auto` 选边都能基于真实高度正确计算。`null`（默认）保持既有「无界、可溢出视口」行为，既有调用外观不变。
+
 * 修复 `DataGridView` 在 `rowCount == 0`（仅表头）时的越界行号：拖拽多选经 `Listener` 命中空白数据区时，`_rowAtY` 原会返回 `rowCount - 1`（即 `-1`），使宿主收到 `(-1, col)` 这类不存在的单元格。现在 `rowCount <= 0` 时直接返回 `null`，空白区不再产生任何选中回调。宿主可放心用「`rowCount: 0` + 只有表头」表示空结果集（如 db_lite 查询页 0 行结果、表数据页空表）。
 
 * `Empty`(overlay) 新增 `maxWidth` 参数：把内容列限制在给定宽度内，长文本（例如数据库返回的错误原文）在该宽度内换行并保持居中，`action` 按钮紧随其下。此前宿主若用「`Row(mainAxisSize.min)` + `Flexible(Text)` + 按钮」手绘居中提示，`Flexible` 会把整行撑到容器全宽——文字被挤成一行省略号、按钮贴到容器最右缘甚至被裁掉。默认 `null` 不限制，既有调用行为不变。

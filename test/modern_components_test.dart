@@ -315,6 +315,59 @@ void main() {
       expect(find.text('Popover content'), findsOneWidget);
     });
 
+    // 回归:连接选择器一类的长列表此前直接把几十行铺到屏幕外,既溢出
+    // 视口又选不到后面的项。scrollable 应把面板夹在 maxHeight 内并在
+    // 内部滚动。
+    testWidgets('Popover 内容过高时在面板内滚动', (tester) async {
+      await tester.pumpWidget(wrap(Popover(
+        width: 220,
+        maxHeight: 200,
+        scrollable: true,
+        trigger: const Button(text: 'Trigger', onPressed: null),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < 40; i++)
+              SizedBox(height: 24, child: Text('Row $i')),
+          ],
+        ),
+      )));
+      await tester.tap(find.text('Trigger'));
+      await tester.pumpAndSettle();
+
+      final scroller = find.byType(SingleChildScrollView);
+      expect(scroller, findsOneWidget);
+
+      // 面板高度被夹到 maxHeight(40 * 24 = 960 行高全部落在面板内滚动)。
+      final panelHeight = tester.getSize(scroller).height;
+      expect(panelHeight, lessThanOrEqualTo(200));
+      expect(panelHeight, greaterThan(150));
+
+      // 末尾项需要滚动才可见:滚动后其纵向位置应当上移。
+      final before = tester.getTopLeft(find.text('Row 39')).dy;
+      await tester.drag(scroller, const Offset(0, -400));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('Row 39')).dy, lessThan(before));
+    });
+
+    testWidgets('Popover 未开启 scrollable 时保持无界(既有行为)', (tester) async {
+      await tester.pumpWidget(wrap(Popover(
+        trigger: const Button(text: 'Trigger', onPressed: null),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < 10; i++)
+              SizedBox(height: 24, child: Text('Row $i')),
+          ],
+        ),
+      )));
+      await tester.tap(find.text('Trigger'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SingleChildScrollView), findsNothing);
+      expect(find.text('Row 9'), findsOneWidget);
+    });
+
     testWidgets('HoverCard opens on hover', (tester) async {
       await tester.pumpWidget(wrap(HoverCard(
         trigger: const Text('Hover me'),

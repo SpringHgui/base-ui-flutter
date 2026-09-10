@@ -152,6 +152,7 @@ class AnchoredOverlay extends StatefulWidget {
     this.toggleOnTap = true,
     this.onOpenChanged,
     this.enabled = true,
+    this.maxHeight,
   });
 
   /// External controller; when `null` an internal one is managed for the
@@ -186,6 +187,15 @@ class AnchoredOverlay extends StatefulWidget {
 
   /// When `false`, the trigger is inert and the surface never opens.
   final bool enabled;
+
+  /// Upper bound for the surface height.
+  ///
+  /// `null` leaves the surface unbounded (legacy behaviour — content taller
+  /// than the viewport simply overflows it). A finite value clamps the
+  /// surface, and `double.infinity` means "as tall as the viewport allows,
+  /// never taller" — the common choice for scrollable popover content, since
+  /// the actual cap is resolved against the viewport at paint time.
+  final double? maxHeight;
 
   @override
   State<AnchoredOverlay> createState() => _AnchoredOverlayState();
@@ -246,6 +256,7 @@ class _AnchoredOverlayState extends State<AnchoredOverlay> {
         side: widget.side,
         align: widget.align,
         gap: widget.gap,
+        maxHeight: widget.maxHeight,
         onClose: _controller.close,
         child: widget.content,
       ),
@@ -303,6 +314,7 @@ class _AnchoredSurface extends StatefulWidget {
     required this.side,
     required this.align,
     required this.gap,
+    required this.maxHeight,
     required this.onClose,
     required this.child,
   });
@@ -311,6 +323,7 @@ class _AnchoredSurface extends StatefulWidget {
   final OverlaySide side;
   final OverlayAlign align;
   final double gap;
+  final double? maxHeight;
   final VoidCallback onClose;
   final Widget child;
 
@@ -410,7 +423,7 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
     );
 
     // Keep the surface inside the overlay viewport (edge clamping).
-    const margin = 8.0;
+    const margin = _viewportMargin;
     final desired = anchorTopLeft + offset;
     final maxX = overlayBox.size.width - childSize.width - margin;
     final maxY = overlayBox.size.height - childSize.height - margin;
@@ -426,10 +439,33 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
     });
   }
 
+  /// The surface keeps a small breathing margin from the viewport edges.
+  static const _viewportMargin = 8.0;
+
+  /// Resolves [widget.maxHeight] against the viewport.
+  ///
+  /// Returns `null` when the surface is unbounded, otherwise the largest
+  /// height that still fits on screen. Resolving here (from `MediaQuery`)
+  /// rather than from the measured overlay box keeps the cap available on the
+  /// very first frame — the constraint has to exist *before* layout, while
+  /// [_remeasure] only runs after it.
+  double? _resolveMaxHeight(BuildContext context) {
+    final configured = widget.maxHeight;
+    if (configured == null) return null;
+    final viewport = MediaQuery.maybeOf(context)?.size.height;
+    if (viewport == null) {
+      return configured.isFinite ? configured : null;
+    }
+    final cap = viewport - _viewportMargin * 2;
+    if (cap <= 0) return configured.isFinite ? configured : null;
+    return configured < cap ? configured : cap;
+  }
+
   @override
   Widget build(BuildContext context) {
     final left = _anchorTopLeft.dx + _clampedOffset.dx;
     final top = _anchorTopLeft.dy + _clampedOffset.dy;
+    final maxHeight = _resolveMaxHeight(context);
 
     return Stack(
       children: [
@@ -485,7 +521,12 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
                 type: MaterialType.transparency,
                 child: Container(
                   key: _contentKey,
-                  child: widget.child,
+                  child: maxHeight == null
+                      ? widget.child
+                      : ConstrainedBox(
+                          constraints: BoxConstraints(maxHeight: maxHeight),
+                          child: widget.child,
+                        ),
                 ),
               ),
             ),
