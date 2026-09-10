@@ -426,6 +426,8 @@ class _DataGridViewState extends State<DataGridView> {
   // ── 拖拽多选辅助 ─────────────────────────────────────────
 
   int? _rowAtY(double localY, double rh) {
+    // 0 行(仅表头)时数据区没有可命中的行,避免算出 -1 这类越界行号
+    if (widget.rowCount <= 0) return null;
     if (localY < 0) return null;
     final row = localY ~/ rh;
     if (row >= widget.rowCount) return widget.rowCount - 1;

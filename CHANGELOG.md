@@ -1,5 +1,7 @@
 ## Unreleased
 
+* 修复 `DataGridView` 在 `rowCount == 0`（仅表头）时的越界行号：拖拽多选经 `Listener` 命中空白数据区时，`_rowAtY` 原会返回 `rowCount - 1`（即 `-1`），使宿主收到 `(-1, col)` 这类不存在的单元格。现在 `rowCount <= 0` 时直接返回 `null`，空白区不再产生任何选中回调。宿主可放心用「`rowCount: 0` + 只有表头」表示空结果集（如 db_lite 查询页 0 行结果、表数据页空表）。
+
 * `Empty`(overlay) 新增 `maxWidth` 参数：把内容列限制在给定宽度内，长文本（例如数据库返回的错误原文）在该宽度内换行并保持居中，`action` 按钮紧随其下。此前宿主若用「`Row(mainAxisSize.min)` + `Flexible(Text)` + 按钮」手绘居中提示，`Flexible` 会把整行撑到容器全宽——文字被挤成一行省略号、按钮贴到容器最右缘甚至被裁掉。默认 `null` 不限制，既有调用行为不变。
 * 修复 `TabControl` 页面面板拿到**无界高度**导致整帧布局中断:自 Flutter 3.47 起,竖向 `Column` 的非 flex 子项不再被夹到剩余空间,而是拿到 `maxHeight = infinity`(旧版本在有界时夹逼到剩余高度)。标签页内容只要要求显式高度就必然在 `performLayout` 断言——例如放 re_editor 代码编辑器的页签会抛 `CodeLineNumber should have an explicit height`;断言中断布局后渲染树半残,之后每次鼠标移动都命中未布局的盒子,`MouseTracker` 的 `_debugDuringDeviceUpdate` 因异常跳出而永久置位 → 控制台无限刷屏 `!_debugDuringDeviceUpdate` + `RenderBox was not laid out`,界面表现为彻底卡死。现将页面面板包进 `Flexible(fit: FlexFit.loose)`:控件自身高度有界时面板填满剩余高度(即 WinForms `DisplayRectangle` 语义,与 3.47 之前的观感一致,页面底色/边框不再塌陷),置于 `DialogBox` 的 `IntrinsicHeight`、滚动容器等无界场景时仍按内容自适应且不触发 flex 断言。回归测试见 `test/tab_control_body_test.dart`。
 * `DataGridView` 表头新增拖拽排序：`onHeaderSort`（按住列头标题横向拖动、松手即按该列排序，向右=升序、向左=降序）、`sortColumn` / `sortAscending`（在当前排序列标题右侧渲染 accent 色 ▲/▼ 箭头）。判定用「按下点 → 松开点」的横向总距离，不与起手阈值叠加，不足 8px 视为按住抖动不触发。拖动过程中箭头实时预示松手后将应用的方向；标题区光标为 `click`、列头右缘内侧 8px 为 `resizeColumn`（沿用 `columnWidths` / `onColumnResize` 改列宽），两者互不干扰。零动画、无 Material 水波纹。
