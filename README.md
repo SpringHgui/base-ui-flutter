@@ -125,7 +125,7 @@ base_ui_flutter 提供**80+ 开箱即用的控件**——WinForm 级桌面控件
 | **Containers** | `GroupBox`、`TabControl`、`SplitContainer`、`Splitter`、`Accordion`、`Collapsible`、`Sheet`、`SidePanel`、`Sidebar`、`Carousel` | 分组与布局容器 |
 | **Menus & Toolbars** | `MenuStrip`、`ContextMenuStrip`、`ToolStrip`、`StatusStrip` | 应用程序外壳 |
 | **Overlay** | `Popover`、`HoverCard`、`DropDownButton`、`MessageBox`、`Command`、`Toast`/`ToastHost`、`Direction`、`Empty` | 浮动/模态组件 |
-| **Dialogs** | `ColorDialog`、`DateTimePicker`、`MonthCalendar`、`ThemeDesigner` | 选择器对话框 |
+| **Dialogs** | `ColorDialog`、`DateTimePicker`、`ListPickerDialog`、`MonthCalendar`、`ThemeDesigner` | 选择器对话框 |
 | **Data** | `BindingNavigator`、`Chart`、`Pagination` | 数据绑定、图表、分页 |
 | **Scroll** | `ScrollBar`、`TrackBar` | 滚动条和滑块 |
 | **Misc** | `ProgressBar`、`RichTextBox`、`ScrollableControl`、`WinToolTip`、`ErrorProvider`、`Alert`、`Attachment`、`Avatar`、`Breadcrumb`、`Bubble`、`Message`、`MessageScroller`、`Questionnaire`、`Skeleton`、`Spinner` | 进度条、聊天、反馈、加载状态 |
@@ -156,7 +156,7 @@ lib/
     ├── containers/             # GroupBox、TabControl、SplitContainer、Accordion、Sheet、…
     ├── menus/                  # MenuStrip、ToolStrip、StatusStrip、ContextMenuStrip
     ├── overlay/                # Popover、MessageBox、Command、Toast、HoverCard、…
-    ├── dialogs/                # ColorDialog、DateTimePicker、MonthCalendar、ThemeDesigner
+    ├── dialogs/                # ColorDialog、DateTimePicker、ListPickerDialog、MonthCalendar、ThemeDesigner
     ├── data/                   # BindingNavigator、Chart、Pagination
     ├── scroll/                 # ScrollBar、TrackBar
     └── misc/                   # ProgressBar、RichTextBox、聊天、骨架屏、旋转加载、…

@@ -20,6 +20,7 @@ class ComboBox<T extends Object> extends StatefulWidget {
     this.focusNode,
     this.enabled = true,
     this.itemToString,
+    this.iconBuilder,
   });
 
   /// The list of selectable items.
@@ -49,6 +50,12 @@ class ComboBox<T extends Object> extends StatefulWidget {
 
   /// Converts an item to its string representation for display.
   final String Function(T)? itemToString;
+
+  /// Builds a leading icon for an item (owner-draw style, e.g. an engine /
+  /// entity glyph in front of the name). Applied to both the closed box's
+  /// current value and every entry of the drop-down list. `null` (default)
+  /// renders text only, exactly as before.
+  final Widget? Function(T item)? iconBuilder;
 
   @override
   State<ComboBox<T>> createState() => _ComboBoxState<T>();
@@ -102,6 +109,30 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
 
   String _itemString(T item) =>
       widget.itemToString?.call(item) ?? item.toString();
+
+  /// Leading icon for [item] (sized from the tokens so it stays inside the
+  /// control height); `null` when the caller passed no `iconBuilder` or the
+  /// builder declined to draw one for this item.
+  Widget? _iconOf(T item, DesktopTokens t) {
+    final builder = widget.iconBuilder;
+    if (builder == null) return null;
+    final icon = builder(item);
+    if (icon == null) return null;
+    final edge = (t.controlHeight - 8).clamp(12.0, 18.0).toDouble();
+    return SizedBox(width: edge, height: edge, child: icon);
+  }
+
+  /// Text + optional leading icon laid out in one row.
+  Widget _labeled(Widget text, Widget? icon, DesktopTokens t) {
+    if (icon == null) return text;
+    return Row(
+      children: [
+        icon,
+        SizedBox(width: t.compactSpacing),
+        Expanded(child: text),
+      ],
+    );
+  }
 
   @override
   void dispose() {
@@ -175,6 +206,8 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
         ? _itemString(widget.value as T)
         : (widget.hint ?? '');
     final isHint = widget.value == null && widget.hint != null;
+    final value = widget.value;
+    final leading = value == null ? null : _iconOf(value, t);
 
     return Listener(
       onPointerDown: (_) {
@@ -190,21 +223,25 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
             Expanded(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: t.controlPaddingX),
-                child: Text(
-                  displayText,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontFamily: t.fontFamily,
-                    fontSize: t.fontSize,
-                    color: isHint
-                        ? t.disabledForegroundColor
-                        : (widget.enabled
-                              ? t.foregroundColor
-                              : t.disabledForegroundColor),
-                    decoration: TextDecoration.none,
-                    fontWeight: FontWeight.w400,
+                child: _labeled(
+                  Text(
+                    displayText,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontFamily: t.fontFamily,
+                      fontSize: t.fontSize,
+                      color: isHint
+                          ? t.disabledForegroundColor
+                          : (widget.enabled
+                                ? t.foregroundColor
+                                : t.disabledForegroundColor),
+                      decoration: TextDecoration.none,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
+                  leading,
+                  t,
                 ),
               ),
             ),
@@ -318,19 +355,23 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
                             horizontal: t.controlPaddingX,
                           ),
                           alignment: Alignment.centerLeft,
-                          child: Text(
-                            _itemString(item),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                            style: TextStyle(
-                              fontFamily: t.fontFamily,
-                              fontSize: t.fontSize,
-                              color: isSelected
-                                  ? t.accentForegroundColor
-                                  : t.foregroundColor,
-                              decoration: TextDecoration.none,
-                              fontWeight: FontWeight.w400,
+                          child: _labeled(
+                            Text(
+                              _itemString(item),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontFamily: t.fontFamily,
+                                fontSize: t.fontSize,
+                                color: isSelected
+                                    ? t.accentForegroundColor
+                                    : t.foregroundColor,
+                                decoration: TextDecoration.none,
+                                fontWeight: FontWeight.w400,
+                              ),
                             ),
+                            _iconOf(item, t),
+                            t,
                           ),
                         ),
                       ),
@@ -397,6 +438,7 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
                   .map(
                     (option) => _EditableOption(
                       text: _itemString(option),
+                      icon: _iconOf(option, t),
                       tokens: t,
                       onSelected: () => onSelected(option),
                     ),
@@ -411,7 +453,8 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
         // padding 把内容区垫到与控件等高,文字即垂直居中(style height:1.0 时
         // 行高恰好等于 fontSize)。
         final double padV = (t.controlHeight - t.fontSize) / 2;
-        return Material(
+        final value = widget.value;
+        final field = Material(
           type: MaterialType.transparency,
           child: TextField(
             controller: controller,
@@ -447,6 +490,15 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
             ),
           ),
         );
+        if (value == null) return field;
+        final icon = _iconOf(value, t);
+        // Leading icon eats into the text field's own horizontal padding so
+        // the glyph lines up with the read-only mode's icon column.
+        if (icon == null) return field;
+        return Padding(
+          padding: EdgeInsets.only(left: t.controlPaddingX),
+          child: _labeled(field, icon, t),
+        );
       },
     );
   }
@@ -459,11 +511,15 @@ class _EditableOption extends StatefulWidget {
     required this.text,
     required this.tokens,
     required this.onSelected,
+    this.icon,
   });
 
   final String text;
   final DesktopTokens tokens;
   final VoidCallback onSelected;
+
+  /// Optional leading glyph (owner-draw combo boxes); already size-constrained.
+  final Widget? icon;
 
   @override
   State<_EditableOption> createState() => _EditableOptionState();
@@ -486,15 +542,25 @@ class _EditableOptionState extends State<_EditableOption> {
             horizontal: t.controlPaddingX,
             vertical: t.compactSpacing,
           ),
-          child: Text(
-            widget.text,
-            style: TextStyle(
-              fontFamily: t.fontFamily,
-              fontSize: t.fontSize,
-              color: t.foregroundColor,
-              decoration: TextDecoration.none,
-              fontWeight: FontWeight.w400,
-            ),
+          child: Row(
+            children: [
+              if (widget.icon != null) ...[
+                widget.icon!,
+                SizedBox(width: t.compactSpacing),
+              ],
+              Expanded(
+                child: Text(
+                  widget.text,
+                  style: TextStyle(
+                    fontFamily: t.fontFamily,
+                    fontSize: t.fontSize,
+                    color: t.foregroundColor,
+                    decoration: TextDecoration.none,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

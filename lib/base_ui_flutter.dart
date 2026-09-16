@@ -112,6 +112,7 @@ export 'src/form/inline_editor.dart';
 
 // ── Dialogs ─────────────────────────────────────────────────────────────────
 export 'src/dialogs/dialog_box.dart';
+export 'src/dialogs/list_picker_dialog.dart';
 export 'src/dialogs/color_dialog.dart';
 export 'src/dialogs/date_time_picker.dart';
 export 'src/dialogs/month_calendar.dart';

@@ -1,5 +1,9 @@
 ## Unreleased
 
+* `ComboBox` 新增 `iconBuilder`（common）：为候选项绘制**前置图标**（WinForms owner-draw 下拉的对应能力，如下拉项名前画一个引擎 / 实体图标）。同一个回调同时作用于**收起态的当前值**与**展开态的每一行**，图标盒子边长由 `controlHeight - 8` 推导并夹在 12~18px，与文本之间留 `compactSpacing`；返回 `null` 表示该项不画图，缺省不传则完全保持既有纯文本外观。只读与可编辑两种模式都已接入（可编辑模式下图标置于文本框左侧、吃掉一份 `controlPaddingX` 以与只读模式对齐），零动画、无 Material 水波纹。
+
+* 新增 `ListPickerDialog`（dialogs）：泛型多选候选对话框——勾选任意个候选项后确定，`show` 按**候选原顺序**回传选中项（取消 / 关闭回传 `null`），自身不写回任何模型。由 daro 表设计器的 `StringPickerDialog`（选择继承的父表）上收泛化而来，满足「无业务依赖 + Token 驱动 + 可独立复用」的入库条件。由 `DialogBox` + `CheckedListBox` + `Button` 组合，零动画、无 Material 水波纹；`okText` / `cancelText` 缺省 `OK` / `Cancel`（与 `MessageBox` 一致，中文由宿主传入）；`itemToString` 自定义行标签而回传的仍是原对象；`emptyHint` 用于无候选时的引导（宿主可同时保留手输入口）。取色链 `tokens ?? TokenScope.maybeOf ?? DesktopTokens.winForm`，与其它浮层一样默认走根导航器，故 `TokenScope` 需位于 `Navigator` 之上才跟随主题。**泛型陷阱**：`selected` 的默认值 `const []` 在泛型声明处拿不到 `T`，运行时实际是 `List<Never>`，直接 `toSet()` 会让首次勾选的 `addAll` 抛 `Iterable<Never>` 类型错误——内部已改为 `Set<T>.from(...)`。回归测试见 `test/list_picker_dialog_test.dart`（按候选顺序回传、预勾选可取消、取消回传 null、空候选提示、`T=int` 且不传 `selected` 的组合）。示例画廊 Dialogs 分类新增 `ListPickerDialog` 页，并计入 `example/test/smoke_test.dart`。
+
 * `Popover` 新增 `scrollable` / `maxHeight`：内容过高时在**面板内部**滚动，而不是把整列铺出屏幕。修复前连接选择器这类下拉（db_lite 查询页「选择连接」有几十个连接）会把全部条目一次性渲染出来——面板高过视口顶部/底部被裁掉，且后面的条目根本选不到。`scrollable: true` 时滚动视图位于带边框的面板**内部**（背景与边框固定不动，只有行在动），`maxHeight` 缺省表示「最多占满视口、绝不超出」，显式给值则按值封顶（仍会与视口取小）。列表用 `ListItem`、`crossAxisAlignment: stretch` 的 `Column` 直接放即可，滚动条沿用控件库 token 化 `ScrollBar`；零动画、无 Material 水波纹。回归测试见 `test/modern_components_test.dart`（「Popover 内容过高时在面板内滚动」+ 未开启时的无界行为各一条），示例页新增 Scrollable 分组。
 * `AnchoredOverlay` 新增 `maxHeight`（`Popover` 的底层实现）：在**布局之前**用 `MediaQuery` 把上限与视口高度取小（`double.infinity` = 只受视口约束），并把 `ConstrainedBox` 套在被 `_contentKey` 测量的那层 `Container` 上——这样 `_remeasure` 量到的就是封顶后的尺寸，贴边夹取与 `OverlaySide.auto` 选边都能基于真实高度正确计算。`null`（默认）保持既有「无界、可溢出视口」行为，既有调用外观不变。
 

@@ -34,6 +34,7 @@ import 'package:example/pages/date_time_picker_page.dart';
 import 'package:example/pages/month_calendar_page.dart';
 import 'package:example/pages/color_dialog_page.dart';
 import 'package:example/pages/dialog_box_page.dart';
+import 'package:example/pages/list_picker_dialog_page.dart';
 import 'package:example/pages/theme_designer_page.dart';
 import 'package:example/pages/binding_navigator_page.dart';
 import 'package:example/pages/scroll_bar_page.dart';
@@ -121,6 +122,7 @@ final List<(String, Widget Function())> _pages = [
   ('month_calendar', () => const MonthCalendarPage()),
   ('color_dialog', () => const ColorDialogPage()),
   ('dialog_box', () => const DialogBoxPage()),
+  ('list_picker_dialog', () => const ListPickerDialogPage()),
   ('theme_designer', () => const ThemeDesignerPage()),
   ('binding_navigator', () => const BindingNavigatorPage()),
   ('scroll_bar', () => const ScrollBarPage()),

@@ -40,6 +40,7 @@ import 'pages/date_time_picker_page.dart';
 import 'pages/month_calendar_page.dart';
 import 'pages/color_dialog_page.dart';
 import 'pages/dialog_box_page.dart';
+import 'pages/list_picker_dialog_page.dart';
 import 'pages/theme_designer_page.dart';
 
 // Data
@@ -215,6 +216,7 @@ final List<_PageEntry> _componentPages = [
   _PageEntry('cat.dialogs', 'MonthCalendar', '$_pagesDir/month_calendar_page.dart', (context) => const MonthCalendarPage()),
   _PageEntry('cat.dialogs', 'ColorDialog', '$_pagesDir/color_dialog_page.dart', (context) => const ColorDialogPage()),
   _PageEntry('cat.dialogs', 'DialogBox', '$_pagesDir/dialog_box_page.dart', (context) => const DialogBoxPage()),
+  _PageEntry('cat.dialogs', 'ListPickerDialog', '$_pagesDir/list_picker_dialog_page.dart', (context) => const ListPickerDialogPage()),
   _PageEntry('cat.dialogs', 'ThemeDesigner', '$_pagesDir/theme_designer_page.dart', (context) => const ThemeDesignerPage()),
   // Data
   _PageEntry('cat.data', 'BindingNavigator', '$_pagesDir/binding_navigator_page.dart', (context) => const BindingNavigatorPage()),
