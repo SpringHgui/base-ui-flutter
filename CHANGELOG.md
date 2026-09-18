@@ -1,5 +1,7 @@
 ## Unreleased
 
+* `Button` 新增 `ButtonVariant.primary`（common）：对话框 / 面板里**唯一主操作**的实心强调色按钮（确定、应用、保存）。底色 `primaryColor`、文字 `accentForegroundColor`，禁用时两者各降不透明度（0.45 / 0.6）而非换成灰色面；描边与底色同色（纯色块无边界感），仅在聚焦时换成 `foregroundColor` 描边。hover / pressed 仍走叠加色，但因 `hoverOverlayColor` 在实心色底上几乎不可见（约 4% 黑），两级都改用 `pressedOverlayColor` 叠加——hover 一层、按下两层，保证快节奏下反馈可辨。零动画、无 Material 水波纹，按下不抢焦点、完整点击才聚焦（与 `solid` 同一套焦点时机）。默认值不变，既有调用零影响。
+
 * `ComboBox` 新增 `iconBuilder`（common）：为候选项绘制**前置图标**（WinForms owner-draw 下拉的对应能力，如下拉项名前画一个引擎 / 实体图标）。同一个回调同时作用于**收起态的当前值**与**展开态的每一行**，图标盒子边长由 `controlHeight - 8` 推导并夹在 12~18px，与文本之间留 `compactSpacing`；返回 `null` 表示该项不画图，缺省不传则完全保持既有纯文本外观。只读与可编辑两种模式都已接入（可编辑模式下图标置于文本框左侧、吃掉一份 `controlPaddingX` 以与只读模式对齐），零动画、无 Material 水波纹。
 
 * 新增 `ListPickerDialog`（dialogs）：泛型多选候选对话框——勾选任意个候选项后确定，`show` 按**候选原顺序**回传选中项（取消 / 关闭回传 `null`），自身不写回任何模型。由 daro 表设计器的 `StringPickerDialog`（选择继承的父表）上收泛化而来，满足「无业务依赖 + Token 驱动 + 可独立复用」的入库条件。由 `DialogBox` + `CheckedListBox` + `Button` 组合，零动画、无 Material 水波纹；`okText` / `cancelText` 缺省 `OK` / `Cancel`（与 `MessageBox` 一致，中文由宿主传入）；`itemToString` 自定义行标签而回传的仍是原对象；`emptyHint` 用于无候选时的引导（宿主可同时保留手输入口）。取色链 `tokens ?? TokenScope.maybeOf ?? DesktopTokens.winForm`，与其它浮层一样默认走根导航器，故 `TokenScope` 需位于 `Navigator` 之上才跟随主题。**泛型陷阱**：`selected` 的默认值 `const []` 在泛型声明处拿不到 `T`，运行时实际是 `List<Never>`，直接 `toSet()` 会让首次勾选的 `addAll` 抛 `Iterable<Never>` 类型错误——内部已改为 `Set<T>.from(...)`。回归测试见 `test/list_picker_dialog_test.dart`（按候选顺序回传、预勾选可取消、取消回传 null、空候选提示、`T=int` 且不传 `selected` 的组合）。示例画廊 Dialogs 分类新增 `ListPickerDialog` 页，并计入 `example/test/smoke_test.dart`。

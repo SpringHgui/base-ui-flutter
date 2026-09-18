@@ -16,6 +16,11 @@ enum ButtonVariant {
   /// toolbar / ribbon icon buttons that live inside a borderless
   /// [ButtonGroup].
   ghost,
+
+  /// Solid **accent** button: [DesktopTokens.primaryColor] fill with
+  /// [DesktopTokens.accentForegroundColor] text. Use for the single primary
+  /// action in a dialog or panel (OK / Apply / Save).
+  primary,
 }
 
 /// A WinForm-style push button.
@@ -130,8 +135,9 @@ class _ButtonState extends State<Button> {
         widget.tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
     final disabled = widget.onPressed == null;
     final ghost = widget.variant == ButtonVariant.ghost;
+    final primary = widget.variant == ButtonVariant.primary;
 
-    // 背景:ghost 透明 + 悬停/按下混合;solid 实色
+    // 背景:ghost 透明 + 悬停/按下混合;solid 实色;primary 强调色实底
     final Color bg;
     if (ghost) {
       bg = _pressed
@@ -139,6 +145,19 @@ class _ButtonState extends State<Button> {
           : _hover
               ? Color.alphaBlend(t.hoverOverlayColor, t.controlColor)
               : Colors.transparent;
+    } else if (primary) {
+      // 实心色底上 hoverOverlay(约 4% 黑)几乎看不出来,故两级都取
+      // pressedOverlay:hover 叠一层,按下再叠一层
+      bg = disabled
+          ? t.primaryColor.withValues(alpha: 0.45)
+          : _pressed
+              ? Color.alphaBlend(
+                  t.pressedOverlayColor,
+                  Color.alphaBlend(t.pressedOverlayColor, t.primaryColor),
+                )
+              : _hover
+                  ? Color.alphaBlend(t.pressedOverlayColor, t.primaryColor)
+                  : t.primaryColor;
     } else {
       bg = disabled
           ? t.controlDisabledColor
@@ -149,10 +168,16 @@ class _ButtonState extends State<Button> {
                   : t.controlColor;
     }
 
-    // 边框:ghost 无边框;solid 聚焦时用高亮色
+    // 边框:ghost 无边框;primary 与底色同色(纯色块),聚焦时才露出描边;
+    // solid 聚焦时用高亮色
     final Border? border;
     if (ghost) {
       border = null;
+    } else if (primary) {
+      border = Border.all(
+        color: _focusNode.hasFocus ? t.foregroundColor : bg,
+        width: t.borderWidth,
+      );
     } else {
       border = Border.all(
         color: _focusNode.hasFocus ? t.primaryColor : t.borderColor,
@@ -192,7 +217,13 @@ class _ButtonState extends State<Button> {
               style: TextStyle(
                 fontFamily: t.fontFamily,
                 fontSize: t.fontSize,
-                color: disabled ? t.disabledForegroundColor : t.foregroundColor,
+                color: primary
+                    ? (disabled
+                        ? t.accentForegroundColor.withValues(alpha: 0.6)
+                        : t.accentForegroundColor)
+                    : (disabled
+                        ? t.disabledForegroundColor
+                        : t.foregroundColor),
                 height: 1.0,
               ),
               child: content,
