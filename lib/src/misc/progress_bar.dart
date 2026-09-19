@@ -22,6 +22,7 @@ class ProgressBar extends StatelessWidget {
     this.min = 0.0,
     this.max = 100.0,
     this.style = ProgressBarStyle.determinate,
+    this.barColor,
     this.tokens,
   });
 
@@ -36,6 +37,10 @@ class ProgressBar extends StatelessWidget {
 
   /// Whether the bar shows a fixed value or an indeterminate marquee.
   final ProgressBarStyle style;
+
+  /// Progress foreground override (e.g. a success green when a job finishes).
+  /// Defaults to [DesktopTokens.primaryColor].
+  final Color? barColor;
 
   /// Token override.
   final DesktopTokens? tokens;
@@ -69,12 +74,12 @@ class ProgressBar extends StatelessWidget {
     return FractionallySizedBox(
       alignment: Alignment.centerLeft,
       widthFactor: fraction,
-      child: ColoredBox(color: t.primaryColor),
+      child: ColoredBox(color: barColor ?? t.primaryColor),
     );
   }
 
   Widget _buildMarquee(DesktopTokens t) {
-    return _MarqueeBar(color: t.primaryColor);
+    return _MarqueeBar(color: barColor ?? t.primaryColor);
   }
 }
 

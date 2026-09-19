@@ -1,6 +1,25 @@
 ## Unreleased
 
+* 新增 `TabStrip`（containers）：扁平**下划线**标签条（浏览器 / Navicat 面板内子标签样式，如设计器「更改 / DDL」切换），`TabControl` 的轻量对应物。受控组件：宿主持有 `index`、响应 `onChanged`；选中项 = `primaryColor` 文字 + 2px 下划线 + 内容底色衬底，未选中项 hover 淡底。切换走 `onTapDown`（按下即触发，零延迟，不注册双击手势），零动画、无 Material 水波纹，取色链 `tokens ?? TokenScope.maybeOf ?? DesktopTokens.winForm`。
+
+* 新增 `InputDialog`（dialogs）：单行文本 / 密码录入弹窗（「连接需要密码」这类打开前补录凭据的 WinForm 对应物）。由 `DialogBox` + `Input` + `Button` 组合，`show` 回传输入文本，取消 / 关闭 / Escape 回传 `null`。`password: true` 时输入框走 `obscureText` + 眼睛切换，且**空输入禁用确定**——调用方可契约式假定非 null 结果必非空；`message` 为输入框上方的提示文本，`initialValue` 预填，`okText` / `cancelText` 缺省 `OK` / `Cancel`（中文由宿主传入）。Enter 提交、零动画、无 Material 水波纹，取色链 `tokens ?? TokenScope.maybeOf ?? DesktopTokens.winForm`。
+
+* `MessageBox`（overlay）底部按钮区调整：**去掉正文与按钮之间的 `Separator` 分割线**，按钮行由右对齐改为**居中**。按钮顺序、自动聚焦（主按钮）、间距均不变。
+
+* 滚动条改为**静止窄条、悬浮加宽**：`ScrollBar` 由无状态改为自绘热区检测——`MouseRegion` 监听滚动条贴边一带（宽度 = 悬浮态宽度 + 4px），鼠标进入即把传给 `Scrollbar.thickness` 的宽度从 5px（`kScrollBarSlimThickness`）切回 8px（`kScrollBarExpandedThickness`，可用 `thumbThickness` 覆写，零动画即时切换）。不再依赖 Material 内部的悬浮 `WidgetState`（实测其在部分场景不可达）。同时新增 `scrollbarHoverThickness()`：按 `WidgetState.hovered / dragged` 切换厚度的 `WidgetStateProperty`，供宿主写入全局 `ThemeData.scrollbarTheme.thickness`，让 Flutter 默认滚动行为为普通 `ListView` / `ScrollView` 生成的滚动条也走同一策略。`thumbThickness` 语义变为「悬浮态宽度」。回归测试见 `test/scroll_bar_test.dart`（纵向/横向悬浮、自定义宽度、状态解析器）。
+
+* `CheckBox` 的 `onChanged` 改为**可选**（common）：字段本就是 `ValueChanged<bool?>?`，仅构造器标了 `required`。传 `null` 即渲染一个被动的勾选指示器——视觉与可交互态**完全一致**（边框仍取 `foregroundColor`，禁用仍走 `enabled`），只是不注册 tap / 键盘处理。用途：勾选框位于 `DataGridView` 单元格里时，外层单元格的 `GestureDetector(onDoubleTap)` 会把勾选框自身的 `onTap` 扣在约 300ms 的双击判定窗口里，单击看起来「没反应」；宿主改用 `Listener.onPointerDown` 在按下瞬间结算勾选，`CheckBox` 只负责显示状态。既有调用全部不受影响。
+
+* `Toggle` **`outline` 变体的选中态改浅**：不再填充实心 `accentColor`，改为 `accentColor`（16% alpha）叠加在 `controlColor` 上的淡色染色 + `accentColor` 描边，文字 / 图标前景保持 `foregroundColor`（不再换成 `accentForegroundColor`）。原因：宿主工具面板标签是「黑色线稿 + 蓝色强调」的自绘图标，实心蓝底会把图标里的蓝色部分整个吞掉。`default_` 变体（加粗 / 斜体这类纯色图标工具栏按钮）仍是实心 accent 填充 + 反色前景，行为不变；`outline` 未选中态也完全不变。
+
 * `Button` 新增 `ButtonVariant.primary`（common）：对话框 / 面板里**唯一主操作**的实心强调色按钮（确定、应用、保存）。底色 `primaryColor`、文字 `accentForegroundColor`，禁用时两者各降不透明度（0.45 / 0.6）而非换成灰色面；描边与底色同色（纯色块无边界感），仅在聚焦时换成 `foregroundColor` 描边。hover / pressed 仍走叠加色，但因 `hoverOverlayColor` 在实心色底上几乎不可见（约 4% 黑），两级都改用 `pressedOverlayColor` 叠加——hover 一层、按下两层，保证快节奏下反馈可辨。零动画、无 Material 水波纹，按下不抢焦点、完整点击才聚焦（与 `solid` 同一套焦点时机）。默认值不变，既有调用零影响。
+
+* `DataGridView` 表头支持**两行标题**：`DataGridViewColumn` 新增 `subtitle`（第二行文本，如列数据类型）与 `subtitleGlyph`（副标题前的 accent 色小字形，如 `#` / `abc`）。任一列带副标题时表头整体加高 14px 并切换为两行布局（标题行 + 14px 副标题行，无副标题的列第二行留空保持对齐）；副标题字号比 `headerFontSize` 小 1.5px、取 `mutedForegroundColor`。全部列都不带副标题时高度与渲染与旧版完全一致，既有调用零影响。排序箭头仍位于标题行右侧。
+* 修复 `DataGridView`(lists) 数据行**缺横向分隔线、最后一行没有下边框**：此前每行的 `Container` 只画背景色，竖线来自单元格的 `right` 边框，但整表唯一的横线只有表头下边框与最外层 `Border.all`；当行数不满可视区（末行下方是空白）时末行像是悬空、没有收口线。现给 `_DataGridRow` 的行容器改用 `BoxDecoration`，保留原背景色的同时补上 `bottom` 边框（颜色 `gridLineColor`、宽度 `borderWidth`，与竖线一致），使每行都有下边线、最后一行自然收口，符合 WinForms DataGridView 的行网格语义。
+
+* 修复 `ComboBox`（common）下拉**点击热区塌成文字大小**：必须精确点到候选项/触发框的文字才能选中或展开，点行内空白或左右内边距无响应。根因是带 `alignment` 的 `Container` 内部走 `Align`、其命中测试为 `deferToChild`，背景虽铺满整行但空白区不参与命中；外层 `Listener` 默认同为 `deferToChild`，于是整行热区缩到子节点尺寸。现给只读触发框、只读候选项与可编辑候选项（`_EditableOption`）三处 `Listener` 补上 `behavior: HitTestBehavior.opaque`，使整行（含内边距与 Expanded 空白区）均可按下选中，零延迟交互与视觉保持不变。
+
+* 新增 `MarqueeSelector`(lists)：桌面风格的**框选**（rubber-band / marquee）行为层。在 `child` 区域内按住左键拖动、位移超过 `threshold`（默认 4px，低于它视为普通点击）后进入框选，期间以 `onMarqueeUpdate(Rect)` 回调视口局部选框并绘制 accent 半透明填充 + 1px 描边浮层，起手触发 `onMarqueeStart`、松手 / 取消触发 `onMarqueeEnd`；`enabled` 可整体关闭，`canStart` 让宿主排除不该起手的地方（如内容区右缘滚动条命中带）。**它不解释命中**：把矩形换算成选中项交给宿主——定行高的网格 / 列表由宿主自己按几何算（配合 `ScrollController.offset`），无需测量渲染对象。指针事件走 `Listener` 而非手势竞技场：祖先 `Listener` 在 pointer down 时缓存命中路径，整段拖动都收得到 move/up，既不与子项自己的 `onPointerDown` 选中抢竞技场，也不会给子项单击引入约 300ms 的双击判定延迟（本项目「零视觉延迟」约束）。零动画、无 Material 水波纹，取色链 `tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm`。
 
 * `ComboBox` 新增 `iconBuilder`（common）：为候选项绘制**前置图标**（WinForms owner-draw 下拉的对应能力，如下拉项名前画一个引擎 / 实体图标）。同一个回调同时作用于**收起态的当前值**与**展开态的每一行**，图标盒子边长由 `controlHeight - 8` 推导并夹在 12~18px，与文本之间留 `compactSpacing`；返回 `null` 表示该项不画图，缺省不传则完全保持既有纯文本外观。只读与可编辑两种模式都已接入（可编辑模式下图标置于文本框左侧、吃掉一份 `controlPaddingX` 以与只读模式对齐），零动画、无 Material 水波纹。
 
@@ -8,6 +27,8 @@
 
 * `Popover` 新增 `scrollable` / `maxHeight`：内容过高时在**面板内部**滚动，而不是把整列铺出屏幕。修复前连接选择器这类下拉（db_lite 查询页「选择连接」有几十个连接）会把全部条目一次性渲染出来——面板高过视口顶部/底部被裁掉，且后面的条目根本选不到。`scrollable: true` 时滚动视图位于带边框的面板**内部**（背景与边框固定不动，只有行在动），`maxHeight` 缺省表示「最多占满视口、绝不超出」，显式给值则按值封顶（仍会与视口取小）。列表用 `ListItem`、`crossAxisAlignment: stretch` 的 `Column` 直接放即可，滚动条沿用控件库 token 化 `ScrollBar`；零动画、无 Material 水波纹。回归测试见 `test/modern_components_test.dart`（「Popover 内容过高时在面板内滚动」+ 未开启时的无界行为各一条），示例页新增 Scrollable 分组。
 * `AnchoredOverlay` 新增 `maxHeight`（`Popover` 的底层实现）：在**布局之前**用 `MediaQuery` 把上限与视口高度取小（`double.infinity` = 只受视口约束），并把 `ConstrainedBox` 套在被 `_contentKey` 测量的那层 `Container` 上——这样 `_remeasure` 量到的就是封顶后的尺寸，贴边夹取与 `OverlaySide.auto` 选边都能基于真实高度正确计算。`null`（默认）保持既有「无界、可溢出视口」行为，既有调用外观不变。
+
+* 修复 `AnchoredOverlay` **测量帧的无限宽崩溃**：浮层内容在算出位置前挂在 `Offstage(offstage: true)` 下，而 `RenderOffstage` 对隐藏子节点用的是**空约束**（`maxWidth = ∞`）。任何依赖有界宽度的内容——`DropDownButton` 的 `Column(crossAxisAlignment: stretch)`、`ListView` 等——在这一帧直接抛 `BoxConstraints forces an infinite width`，调试模式下弹层根本打不开。现给被测量的那层套 `ConstrainedBox(maxWidth: 视口宽 - 2×8)`（视口宽取自 `MediaQuery`，取不到则不设限），使测量帧与定位后的约束一致。修复 `DropDownButton` 两条既有测试（opens menu / closes after selecting an item）与宿主「导出向导」底部三个下拉。
 
 * 修复 `DataGridView` 在 `rowCount == 0`（仅表头）时的越界行号：拖拽多选经 `Listener` 命中空白数据区时，`_rowAtY` 原会返回 `rowCount - 1`（即 `-1`），使宿主收到 `(-1, col)` 这类不存在的单元格。现在 `rowCount <= 0` 时直接返回 `null`，空白区不再产生任何选中回调。宿主可放心用「`rowCount: 0` + 只有表头」表示空结果集（如 db_lite 查询页 0 行结果、表数据页空表）。
 
@@ -22,6 +43,7 @@
 * `Splitter` 新增两个正交的外观开关（默认 `true`，既有调用外观不变）：`showHairline` 管**静止态**是否画 1px 发丝线，`false` 供「面板贴合」布局使用——分隔条不再插进 `Row` / `Column` 里占掉 5px 布局宽度，而是由宿主以浮层（`Positioned`）压在两栏拼缝上且不画线，拼缝既不会被看成间隙，也不会让中间面板两侧多出一条像边框的线；`showHoverHighlight` 管**悬浮 / 拖动时**是否换成 `primaryColor` 高亮，`false` 时发丝线保持静止色（`showHairline: true`）或任何状态都不着色（`showHairline: false`），并且不注册鼠标进出回调 → 悬停零重建。手柄始终保留 `resizeLeftRight` / `resizeUpDown` 光标与完整命中区，照样能拖。回归测试见 `test/splitter_test.dart`（四种组合各一条）。
 
 * 新增 `StepBar`(misc)：向导式横向步骤条（编号圆标 + 步骤标题 + 连接短线），三态渲染（已完成=描边、当前=accent 实心、未到达=灰化），供导入 / 导出向导一类多页对话框标示当前进度；纯展示组件，翻页仍由宿主对话框按钮控制。零动画、无 Material 水波纹，取色链 `tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm`。
+* `ProgressBar` 新增 `barColor`（misc）：覆盖进度条**前景色**。用于长任务对话框需要按结果着色的场景（如导出向导完成时整条转成功绿、失败转红），缺省 `null` 时仍取 `DesktopTokens.primaryColor`，既有调用外观不变。色值由宿主作为构造参数传入，控件本身仍不硬编码任何颜色，marquee 模式同样生效。
 * 新增 `PageNavigator`(data)：输入跳页型分页器——首页 / 上一页 / 页码输入框 / 下一页 / 尾页 + 可选「共 N 页」标签，仅一个输入框输入页码回车跳转，无页码按钮阵列；输入框自动过滤非数字字符，非法输入回弹当前页。页码输入框的垂直 padding 沿用 `Input` 默认居中算法（`(controlHeight - fontSize)/2`），避免 `isDense` 下 `textAlignVertical` 失效导致文字贴顶。`pageCount` 可为 `null`（总页数未知，按需 COUNT 模式）：「共 N 页」显示为「共 ? 页」，下一页/尾页保持可点，尾页按钮改触发 `onGoLast` 回调（由调用方执行 COUNT 后跳转）。与页码阵列型 `Pagination` 并存。
 * `Input` 新增 `textAlign` 参数：文本对齐方式透传给文本域（如页码输入框居中显示），默认 `TextAlign.start` 保持原行为。
 

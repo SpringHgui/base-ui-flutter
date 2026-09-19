@@ -72,9 +72,15 @@ class _ToggleState extends State<Toggle> {
       ToggleSize.large => 1.15,
     };
 
-    final Color baseFill = widget.selected
-        ? t.accentColor
-        : Colors.transparent;
+    final isOutline = widget.variant == ToggleVariant.outline;
+    // outline:选中态用淡蓝染色 + 强调描边，而不是实心蓝——
+    // 保持前景仍是主文字色，图标里的蓝色线稿不会被底色吞掉
+    final Color baseFill = !widget.selected
+        ? Colors.transparent
+        : (isOutline
+            ? Color.alphaBlend(
+                t.accentColor.withValues(alpha: 0.16), t.controlColor)
+            : t.accentColor);
     final Color? hoverFill = widget.selected ? null : t.mutedColor;
 
     return Surface(
@@ -84,7 +90,9 @@ class _ToggleState extends State<Toggle> {
           : null,
       color: baseFill,
       hoverColor: hoverFill,
-      borderColor: widget.variant == ToggleVariant.outline ? t.borderColor : null,
+      borderColor: isOutline
+          ? (widget.selected ? t.accentColor : t.borderColor)
+          : null,
       semanticLabel: widget.semanticLabel,
       selected: widget.selected,
       constraints: BoxConstraints(
@@ -97,7 +105,7 @@ class _ToggleState extends State<Toggle> {
           fontFamily: t.fontFamily,
           fontSize: t.fontSize * 0.875,
           fontWeight: FontWeight.w500,
-          color: widget.selected
+          color: widget.selected && !isOutline
               ? t.accentForegroundColor
               : t.foregroundColor,
           height: 1.2,

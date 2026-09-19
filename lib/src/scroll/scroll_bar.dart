@@ -6,12 +6,38 @@ import '../foundation/token_scope.dart';
 /// The orientation of a [ScrollBar].
 enum ScrollBarOrientation { horizontal, vertical }
 
+/// 滚动条静止时的窄厚度。
+const double kScrollBarSlimThickness = 5.0;
+
+/// 滚动条悬浮 / 拖动时恢复的常规厚度。
+const double kScrollBarExpandedThickness = 8.0;
+
+/// 「静止窄、鼠标悬浮上去后恢复常规宽度」的滚动条厚度策略。
+///
+/// 供宿主写入全局 `ThemeData.scrollbarTheme.thickness`，覆盖 Flutter 默认
+/// 滚动行为为普通 `ListView` / `ScrollView` 生成的滚动条（`ScrollBar` 控件
+/// 自身的热区检测见其类注释）。
+WidgetStateProperty<double> scrollbarHoverThickness({
+  double slim = kScrollBarSlimThickness,
+  double expanded = kScrollBarExpandedThickness,
+}) {
+  return WidgetStateProperty.resolveWith((states) =>
+      states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.dragged)
+          ? expanded
+          : slim);
+}
+
 /// A WinForm-style scroll bar (horizontal or vertical).
 ///
 /// This is a thin wrapper around Flutter's [Scrollbar] styled to match the
 /// classic WinForms look via [DesktopTokens]. It serves as the virtual-scroll
 /// infrastructure for data-heavy controls like [DataGridView].
-class ScrollBar extends StatelessWidget {
+///
+/// 宽度策略：静止时 [kScrollBarSlimThickness] 窄条；鼠标悬浮到滚动条上
+/// （或拖动它）时恢复到 `thumbThickness`（默认 8）。悬浮检测由本组件自己做
+/// （MouseRegion 命中贴边热区）——不依赖 Material 内部悬浮状态，行为确定。
+class ScrollBar extends StatefulWidget {
   const ScrollBar({
     super.key,
     required this.controller,
@@ -34,7 +60,7 @@ class ScrollBar extends StatelessWidget {
   /// Token override.
   final DesktopTokens? tokens;
 
-  /// Override for the thumb thickness. Defaults to a token-derived value.
+  /// 悬浮 / 拖动时的滚动条宽度；静止时自动收窄。默认 8。
   final double? thumbThickness;
 
   /// Whether the scrollbar thumb is always visible.
@@ -42,23 +68,58 @@ class ScrollBar extends StatelessWidget {
   final bool thumbVisibility;
 
   @override
-  Widget build(BuildContext context) {
-    final t = tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
-    final thickness = thumbThickness ?? 8.0;
+  State<ScrollBar> createState() => _ScrollBarState();
+}
 
-    return ScrollbarTheme(
-      data: ScrollbarThemeData(
-        thumbColor: WidgetStatePropertyAll(t.borderColor),
-        trackColor: WidgetStatePropertyAll(t.controlColor),
-        trackBorderColor: WidgetStatePropertyAll(t.borderColor),
-      ),
-      child: Scrollbar(
-        controller: controller,
-        thickness: thickness,
-        thumbVisibility: thumbVisibility,
-        child: child,
-      ),
-    );
+class _ScrollBarState extends State<ScrollBar> {
+  bool _overBar = false;
+  Size _boxSize = Size.zero;
+
+  double get _expanded =>
+      widget.thumbThickness ?? kScrollBarExpandedThickness;
+  double get _slim =>
+      _expanded < kScrollBarSlimThickness ? _expanded : kScrollBarSlimThickness;
+
+  void _updateHover(Offset local) {
+    // 热区比展开宽度再宽几像素，鼠标靠近贴边缘即可触发，无需精确瞄准。
+    final band = _expanded + 4;
+    final over = widget.orientation == ScrollBarOrientation.vertical
+        ? local.dx >= _boxSize.width - band
+        : local.dy >= _boxSize.height - band;
+    if (over != _overBar) setState(() => _overBar = over);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t =
+        widget.tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
+    return LayoutBuilder(builder: (context, c) {
+      final size = c.biggest;
+      final trackable = widget.orientation == ScrollBarOrientation.vertical
+          ? size.width.isFinite
+          : size.height.isFinite;
+      if (trackable) _boxSize = size;
+      return MouseRegion(
+        onHover:
+            trackable && _boxSize.isFinite ? (e) => _updateHover(e.localPosition) : null,
+        onExit: (_) {
+          if (_overBar) setState(() => _overBar = false);
+        },
+        child: ScrollbarTheme(
+          data: ScrollbarThemeData(
+            thumbColor: WidgetStatePropertyAll(t.borderColor),
+            trackColor: WidgetStatePropertyAll(t.controlColor),
+            trackBorderColor: WidgetStatePropertyAll(t.borderColor),
+          ),
+          child: Scrollbar(
+            controller: widget.controller,
+            thickness: _overBar ? _expanded : _slim,
+            thumbVisibility: widget.thumbVisibility,
+            child: widget.child,
+          ),
+        ),
+      );
+    });
   }
 }
 

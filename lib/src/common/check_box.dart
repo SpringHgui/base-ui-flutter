@@ -15,7 +15,7 @@ class CheckBox extends StatelessWidget {
   const CheckBox({
     super.key,
     required this.value,
-    required this.onChanged,
+    this.onChanged,
     this.label,
     this.tokens,
     this.focusNode,
@@ -27,6 +27,11 @@ class CheckBox extends StatelessWidget {
   final bool value;
 
   /// Called when the user toggles the check box. Receives the new value.
+  ///
+  /// `null` renders a passive indicator (same visuals, no tap / keyboard
+  /// handling) for hosts that drive the toggle themselves — e.g. a box inside
+  /// a [DataGridView] cell, where the cell's double-tap recognizer would hold
+  /// this widget's own tap until the 300 ms judgement window closes.
   final ValueChanged<bool?>? onChanged;
 
   /// Optional text shown beside the indicator.

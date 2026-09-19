@@ -210,6 +210,7 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
     final leading = value == null ? null : _iconOf(value, t);
 
     return Listener(
+      behavior: HitTestBehavior.opaque,
       onPointerDown: (_) {
         if (!widget.enabled || widget.items.isEmpty) return;
         _toggleDropDown(t);
@@ -343,6 +344,7 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
                         if (_hoverIndex == index) _hoverIndex = -1;
                       }),
                       child: Listener(
+                        behavior: HitTestBehavior.opaque,
                         onPointerDown: (_) {
                           widget.onChanged?.call(item);
                           _closeDropDown();
@@ -535,6 +537,7 @@ class _EditableOptionState extends State<_EditableOption> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: Listener(
+        behavior: HitTestBehavior.opaque,
         onPointerDown: (_) => widget.onSelected(),
         child: Container(
           color: _hover ? t.controlHoverColor : null,

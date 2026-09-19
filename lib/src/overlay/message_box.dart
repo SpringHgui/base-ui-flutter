@@ -6,7 +6,6 @@ import '../foundation/desktop_tokens.dart';
 import '../foundation/overlay.dart';
 import '../foundation/token_scope.dart';
 import '../common/button.dart';
-import '../common/separator.dart';
 
 /// Icons shown in a [MessageBox] (WinForm `MessageBoxIcon`).
 enum MessageBoxType {
@@ -343,11 +342,11 @@ class _MessageBoxState extends State<MessageBox> {
                 ],
               ),
             ),
-            Separator(tokens: t),
             Padding(
-              padding: EdgeInsets.all(t.controlPaddingX),
+              padding: EdgeInsets.fromLTRB(
+                  t.controlPaddingX, 0, t.controlPaddingX, t.controlPaddingX),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: _buttons(t),
               ),
             ),

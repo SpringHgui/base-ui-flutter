@@ -442,6 +442,10 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
   /// The surface keeps a small breathing margin from the viewport edges.
   static const _viewportMargin = 8.0;
 
+  /// Viewport width, when known — see the measuring-frame cap in [build].
+  static double? _viewportWidth(BuildContext context) =>
+      MediaQuery.maybeOf(context)?.size.width;
+
   /// Resolves [widget.maxHeight] against the viewport.
   ///
   /// Returns `null` when the surface is unbounded, otherwise the largest
@@ -515,18 +519,28 @@ class _AnchoredSurfaceState extends State<_AnchoredSurface> {
           top: top,
           child: Offstage(
             offstage: !_measured,
-            child: FocusTrap(
-              onEscape: widget.onClose,
-              child: Material(
-                type: MaterialType.transparency,
-                child: Container(
-                  key: _contentKey,
-                  child: maxHeight == null
-                      ? widget.child
-                      : ConstrainedBox(
-                          constraints: BoxConstraints(maxHeight: maxHeight),
-                          child: widget.child,
-                        ),
+            // RenderOffstage lays a hidden child out with *empty* (infinite)
+            // constraints, so content that needs a bounded width (a stretch
+            // Column, a ListView…) would throw on the measuring frame. Cap it
+            // to the viewport before position is known.
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: (_viewportWidth(context) ?? double.infinity) -
+                    _viewportMargin * 2,
+              ),
+              child: FocusTrap(
+                onEscape: widget.onClose,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Container(
+                    key: _contentKey,
+                    child: maxHeight == null
+                        ? widget.child
+                        : ConstrainedBox(
+                            constraints: BoxConstraints(maxHeight: maxHeight),
+                            child: widget.child,
+                          ),
+                  ),
                 ),
               ),
             ),

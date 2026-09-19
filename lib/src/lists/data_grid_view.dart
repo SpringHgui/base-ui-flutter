@@ -19,10 +19,18 @@ class DataGridViewColumn {
     this.width,
     this.flex = 1,
     this.alignment = Alignment.centerLeft,
+    this.subtitle,
+    this.subtitleGlyph,
   });
 
   /// Header text.
   final String title;
+
+  /// Optional second header line (e.g. the column's data type).
+  final String? subtitle;
+
+  /// Short glyph drawn before [subtitle] (e.g. "#" or "abc").
+  final String? subtitleGlyph;
 
   /// Fixed width in logical pixels. When set, [flex] is ignored.
   final double? width;
@@ -529,10 +537,19 @@ class _DataGridViewState extends State<DataGridView> {
 
   // -- Header ---------------------------------------------------------------
 
+  /// 任一列带副标题时表头为两行(标题 + 类型),相应加高。
+  double _headerHeight(DesktopTokens t) {
+    final base = widget.rowHeight ?? t.controlHeight;
+    final twoLine = widget.columns
+        .any((c) => c.subtitle != null || c.subtitleGlyph != null);
+    return twoLine ? base + 14 : base;
+  }
+
   Widget _buildHeader(DesktopTokens t) {
     final lineColor = widget.gridLineColor ?? t.borderColor;
+    final hh = _headerHeight(t);
     return Container(
-      height: widget.rowHeight ?? t.controlHeight,
+      height: hh,
       decoration: BoxDecoration(
         color: widget.headerColor ?? t.controlColor,
         border: Border(
@@ -545,7 +562,7 @@ class _DataGridViewState extends State<DataGridView> {
             SizedBox(
               width: widget.rowNumberWidth,
               child: Container(
-                height: widget.rowHeight ?? t.controlHeight,
+                height: hh,
                 decoration: BoxDecoration(
                   border: Border(
                     right: BorderSide(color: lineColor, width: t.borderWidth),
@@ -580,8 +597,93 @@ class _DataGridViewState extends State<DataGridView> {
         ? _headerDragAsc
         : (widget.sortColumn == columnIndex ? widget.sortAscending : null);
 
+    final twoLine = widget.columns
+        .any((c) => c.subtitle != null || c.subtitleGlyph != null);
+    final hasSubtitle = col.subtitle != null || col.subtitleGlyph != null;
+
+    final titleRow = Row(
+      children: [
+        Expanded(
+          child: Text(
+            col.title,
+            style: TextStyle(
+              fontFamily: t.fontFamily,
+              fontSize: widget.headerFontSize ?? t.fontSize,
+              color: t.foregroundColor,
+              fontWeight: FontWeight.w600,
+              height: 1.0,
+              decoration: TextDecoration.none,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
+        if (arrowAsc != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 2),
+            child: Icon(
+              arrowAsc ? Icons.arrow_upward : Icons.arrow_downward,
+              size: 12,
+              color: t.accentColor,
+            ),
+          ),
+      ],
+    );
+
+    Widget content;
+    if (!twoLine) {
+      content = titleRow;
+    } else {
+      content = Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          titleRow,
+          SizedBox(
+            height: 14,
+            child: hasSubtitle
+                ? Row(
+                    children: [
+                      if (col.subtitleGlyph != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 3),
+                          child: Text(
+                            col.subtitleGlyph!,
+                            style: TextStyle(
+                              fontFamily: t.fontFamily,
+                              fontSize: 9.5,
+                              color: t.accentColor,
+                              fontWeight: FontWeight.w700,
+                              height: 1.0,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: Text(
+                          col.subtitle ?? '',
+                          style: TextStyle(
+                            fontFamily: t.fontFamily,
+                            fontSize: (widget.headerFontSize ?? t.fontSize) -
+                                1.5,
+                            color: t.mutedForegroundColor,
+                            height: 1.0,
+                            decoration: TextDecoration.none,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      );
+    }
+
     Widget cell = Container(
-      height: widget.rowHeight ?? t.controlHeight,
+      height: _headerHeight(t),
       padding: EdgeInsets.symmetric(
         horizontal: widget.cellPaddingX ?? t.controlPaddingX,
       ),
@@ -591,34 +693,7 @@ class _DataGridViewState extends State<DataGridView> {
           right: BorderSide(color: lineColor, width: t.borderWidth),
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              col.title,
-              style: TextStyle(
-                fontFamily: t.fontFamily,
-                fontSize: widget.headerFontSize ?? t.fontSize,
-                color: t.foregroundColor,
-                fontWeight: FontWeight.w600,
-                height: 1.0,
-                decoration: TextDecoration.none,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ),
-          if (arrowAsc != null)
-            Padding(
-              padding: const EdgeInsets.only(left: 2),
-              child: Icon(
-                arrowAsc ? Icons.arrow_upward : Icons.arrow_downward,
-                size: 12,
-                color: t.accentColor,
-              ),
-            ),
-        ],
-      ),
+      child: content,
     );
 
     final onSort = widget.onHeaderSort;
@@ -904,7 +979,12 @@ class _DataGridRowState extends State<_DataGridRow> {
       onExit: (_) => setState(() => _hovered = false),
       child: Container(
         height: w.rowHeight,
-        color: bg,
+        decoration: BoxDecoration(
+          color: bg,
+          border: Border(
+            bottom: BorderSide(color: w.gridLineColor, width: w.t.borderWidth),
+          ),
+        ),
         child: Row(
           children: [
             if (w.showRowNumbers) _buildRowNumberCell(),
