@@ -1,5 +1,7 @@
 ## Unreleased
 
+* 修复 `Button`（common）禁用态**吞掉父级点击**：`onPressed == null` 时 `onTap` / `onTapDown` / `onTapUp` 都已置空，唯独 `onTapCancel` 仍无条件注册，于是 `TapGestureRecognizer` 照样进入竞技场、并因层级比父级更深而胜出——父级收不到这次点击，按钮自己又什么都不做。现在 disabled 时四个点击回调全为 `null`，按钮彻底不注册识别器，包裹它的父级触发器（`Sheet` / `Command` 的 `trigger: Button(...)`）恢复可用。与 WinForms 一致：禁用控件不吞鼠标消息。回归测试见 `test/widgets_test.dart`（禁用按钮点父级仍触发）与 `test/modern_components_test.dart`（SidePanel / Command 经禁用 trigger 打开）。
+
 * 新增 `TabStrip`（containers）：扁平**下划线**标签条（浏览器 / Navicat 面板内子标签样式，如设计器「更改 / DDL」切换），`TabControl` 的轻量对应物。受控组件：宿主持有 `index`、响应 `onChanged`；选中项 = `primaryColor` 文字 + 2px 下划线 + 内容底色衬底，未选中项 hover 淡底。切换走 `onTapDown`（按下即触发，零延迟，不注册双击手势），零动画、无 Material 水波纹，取色链 `tokens ?? TokenScope.maybeOf ?? DesktopTokens.winForm`。
 
 * 新增 `InputDialog`（dialogs）：单行文本 / 密码录入弹窗（「连接需要密码」这类打开前补录凭据的 WinForm 对应物）。由 `DialogBox` + `Input` + `Button` 组合，`show` 回传输入文本，取消 / 关闭 / Escape 回传 `null`。`password: true` 时输入框走 `obscureText` + 眼睛切换，且**空输入禁用确定**——调用方可契约式假定非 null 结果必非空；`message` 为输入框上方的提示文本，`initialValue` 预填，`okText` / `cancelText` 缺省 `OK` / `Cancel`（中文由宿主传入）。Enter 提交、零动画、无 Material 水波纹，取色链 `tokens ?? TokenScope.maybeOf ?? DesktopTokens.winForm`。

@@ -14,6 +14,13 @@ void main() {
   });
 
   group('Button', () {
+    // Button 是自绘控件(Focus + MouseRegion + GestureDetector),不包 TextButton,
+    // 故断言落在它自己的手势回调上。
+    Finder buttonGestures(String text) => find.descendant(
+          of: find.widgetWithText(Button, text),
+          matching: find.byType(GestureDetector),
+        );
+
     testWidgets('renders text and invokes onPressed', (tester) async {
       var pressed = 0;
       await tester.pumpWidget(
@@ -21,17 +28,34 @@ void main() {
       );
 
       expect(find.text('OK'), findsOneWidget);
-      expect(find.byType(TextButton), findsOneWidget);
+      final gestures =
+          tester.widgetList<GestureDetector>(buttonGestures('OK'));
+      expect(gestures, hasLength(1));
+      expect(gestures.single.onTap, isNotNull);
 
       await tester.tap(find.text('OK'));
       expect(pressed, 1);
     });
 
     testWidgets('is disabled when onPressed is null', (tester) async {
-      await tester.pumpWidget(wrap(const Button(text: 'OK')));
+      var outerTaps = 0;
+      await tester.pumpWidget(wrap(GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => outerTaps++,
+        child: const Button(text: 'OK'),
+      )));
 
-      final button = tester.widget<TextButton>(find.byType(TextButton));
-      expect(button.onPressed, isNull);
+      final gestures =
+          tester.widgetList<GestureDetector>(buttonGestures('OK'));
+      expect(gestures, hasLength(1));
+      final gesture = gestures.single;
+      expect(gesture.onTap, isNull);
+      expect(gesture.onTapDown, isNull);
+      expect(gesture.onTapCancel, isNull);
+
+      // 禁用不等于吞点击:按钮不注册识别器,父级照样收到(WinForms 语义)
+      await tester.tap(find.text('OK'));
+      expect(outerTaps, 1);
     });
   });
 

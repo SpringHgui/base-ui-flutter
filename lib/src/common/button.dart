@@ -200,7 +200,7 @@ class _ButtonState extends State<Button> {
               ? null
               : (_) => setState(() => _pressed = true),
           onTapUp: disabled ? null : (_) => setState(() => _pressed = false),
-          onTapCancel: () => setState(() => _pressed = false),
+          onTapCancel: disabled ? null : () => setState(() => _pressed = false),
           onTap: disabled ? null : _handlePressed,
           child: Container(
             // 最小高度 = controlHeight,不强制固定高度:child(如图标+文字列)
