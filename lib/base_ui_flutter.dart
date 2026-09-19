@@ -74,11 +74,13 @@ export 'src/lists/list_view.dart';
 export 'src/lists/list_item.dart';
 export 'src/lists/tree_view.dart';
 export 'src/lists/data_grid_view.dart';
+export 'src/lists/marquee_selector.dart';
 export 'src/lists/property_grid.dart';
 
 // ── Containers ──────────────────────────────────────────────────────────────
 export 'src/containers/group_box.dart';
 export 'src/containers/tab_control.dart';
+export 'src/containers/tab_strip.dart';
 export 'src/containers/split_container.dart';
 export 'src/containers/splitter.dart';
 export 'src/containers/accordion.dart';
@@ -112,6 +114,7 @@ export 'src/form/inline_editor.dart';
 
 // ── Dialogs ─────────────────────────────────────────────────────────────────
 export 'src/dialogs/dialog_box.dart';
+export 'src/dialogs/input_dialog.dart';
 export 'src/dialogs/list_picker_dialog.dart';
 export 'src/dialogs/color_dialog.dart';
 export 'src/dialogs/date_time_picker.dart';
