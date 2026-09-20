@@ -132,6 +132,7 @@ class DataGridView extends StatefulWidget {
     this.onHeaderSort,
     this.sortColumn,
     this.sortAscending = true,
+    this.selectedRows,
   });
 
   /// Column definitions.
@@ -268,6 +269,13 @@ class DataGridView extends StatefulWidget {
 
   /// Direction of [sortColumn] (true = ascending).
   final bool sortAscending;
+
+  /// Set of row indices currently selected in multi-row mode.
+  /// When non-empty, takes precedence over [selectedRow] for row background /
+  /// row-number indicator rendering. Pointer handling is left to the host:
+  /// [onRowSelected] still fires with the clicked row index and the host is
+  /// expected to read modifier keys and update this set.
+  final Set<int>? selectedRows;
 
   @override
   State<DataGridView> createState() => _DataGridViewState();
@@ -856,13 +864,17 @@ class _DataGridViewState extends State<DataGridView> {
   // -- Data row -------------------------------------------------------------
 
   Widget _buildRow(DesktopTokens t, int row, double rh) {
+    final multiRows = widget.selectedRows;
+    final rowSelected = (multiRows != null && multiRows.isNotEmpty)
+        ? multiRows.contains(row)
+        : widget.selectedRow == row;
     return _DataGridRow(
       t: t,
       row: row,
       rowHeight: rh,
       columns: widget.columns,
       cellBuilder: widget.cellBuilder,
-      isSelected: widget.selectedRow == row,
+      isSelected: rowSelected,
       selectedCell: widget.selectedCell,
       selectedCells: widget.selectedCells,
       anchorCell: widget.anchorCell,
@@ -996,7 +1008,8 @@ class _DataGridRowState extends State<_DataGridRow> {
     );
   }
 
-  // 行号(选中)列:按下选中整行;右键同样弹菜单(作用于首列)
+  // 行号(选中)列:左键按下选中整行;右键只弹菜单、**不改选中**
+  // (与数据单元格一致,避免右键打断多行选中)
   Widget _buildRowNumberCell() {
     final w = widget;
     return SizedBox(
@@ -1005,10 +1018,11 @@ class _DataGridRowState extends State<_DataGridRow> {
         behavior: HitTestBehavior.opaque,
         onPointerDown: w.enabled
             ? (event) {
-                w.onRowSelected?.call(w.row);
                 if (event.buttons == kSecondaryMouseButton) {
                   w.onCellContext?.call(w.row, 0, event.position);
+                  return;
                 }
+                w.onRowSelected?.call(w.row);
               }
             : null,
         child: Container(

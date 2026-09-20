@@ -1,5 +1,11 @@
 ## Unreleased
 
+* `DataGridView`（lists）**行号列右键不再改选中**：此前 `_buildRowNumberCell` 的 `Listener.onPointerDown` 对左 / 右键一视同仁先触发 `onRowSelected` 再在右键时补发 `onCellContext`，导致右键一行会先把多行选中打散成单选，与数据单元格「右键只弹菜单、不动选中」的语义不一致。现改为右键分支直接 `return`，仅左键（含 Ctrl / Shift 修饰）走 `onRowSelected`。宿主读修饰键做多行加 / 连选时不再被右键意外重置。
+
+* `DataGridView`（lists）新增 `selectedRows`（`Set<int>?`）：**多行选中渲染**。集合非空时接管行底色与行号列选中态（`rowNumberBuilder` 的 `rowSelected` 参数），此时 `selectedRow` 被忽略。指针语义不变：`onRowSelected` 仍只回传点击行号，宿主自行读修饰键（Ctrl 加选 / Shift 连选）更新集合并回传，符合「行为归宿主、绘制归组件」的既有分工。用于表数据浏览页像 Navicat 那样多行选中 + 复制 / 粘贴 / 删除。缺省 `null` 与旧版一致，既有调用零影响。
+
+* `InlineEditor`（form）新增 `selectAll`（默认 `false`）：进入编辑时全选初始文本，供节点内联改名等「键入即覆盖」场景使用；`true` 时 controller 预置全选区并同步 `Input.selectAllOnFocus`。默认值下行为与旧版完全一致（光标置于文本末尾），既有调用零影响。
+
 * 修复 `Button`（common）禁用态**吞掉父级点击**：`onPressed == null` 时 `onTap` / `onTapDown` / `onTapUp` 都已置空，唯独 `onTapCancel` 仍无条件注册，于是 `TapGestureRecognizer` 照样进入竞技场、并因层级比父级更深而胜出——父级收不到这次点击，按钮自己又什么都不做。现在 disabled 时四个点击回调全为 `null`，按钮彻底不注册识别器，包裹它的父级触发器（`Sheet` / `Command` 的 `trigger: Button(...)`）恢复可用。与 WinForms 一致：禁用控件不吞鼠标消息。回归测试见 `test/widgets_test.dart`（禁用按钮点父级仍触发）与 `test/modern_components_test.dart`（SidePanel / Command 经禁用 trigger 打开）。
 
 * 新增 `TabStrip`（containers）：扁平**下划线**标签条（浏览器 / Navicat 面板内子标签样式，如设计器「更改 / DDL」切换），`TabControl` 的轻量对应物。受控组件：宿主持有 `index`、响应 `onChanged`；选中项 = `primaryColor` 文字 + 2px 下划线 + 内容底色衬底，未选中项 hover 淡底。切换走 `onTapDown`（按下即触发，零延迟，不注册双击手势），零动画、无 Material 水波纹，取色链 `tokens ?? TokenScope.maybeOf ?? DesktopTokens.winForm`。

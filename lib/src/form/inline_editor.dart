@@ -19,6 +19,7 @@ class InlineEditor extends StatefulWidget {
     this.height,
     this.tokens,
     this.contentPadding,
+    this.selectAll = false,
   });
 
   /// 初始文本。
@@ -42,20 +43,25 @@ class InlineEditor extends StatefulWidget {
   /// 内边距覆盖;传 [EdgeInsets.zero] 可消除与外层容器的双重间距。
   final EdgeInsetsGeometry? contentPadding;
 
+  /// 进入编辑时是否全选初始文本(如节点改名,直接键入即覆盖)。
+  /// 默认 false:光标置于文本末尾。
+  final bool selectAll;
+
   @override
   State<InlineEditor> createState() => _InlineEditorState();
 }
 
 class _InlineEditorState extends State<InlineEditor> {
-  // 初始光标置于文本末尾。两层防护:
-  // 1. controller 预设合法 collapsed 选区,挡掉 TextField 聚焦时
-  //    "选区无效 → 光标置末尾"的兜底路径;
-  // 2. 显式 selectAllOnFocus: false —— 桌面平台(Win/Linux/macOS)默认
-  //    selectAllOnFocus 为 true,聚焦时无论如何都会全选,预设选区挡不住。
+  // 初始选区按 selectAll 决定:全选(改名即键入覆盖)或光标置于文本末尾。
+  // 两层防护:
+  // 1. controller 预设合法选区,挡掉 TextField 聚焦时"选区无效 → 兜底"的路径;
+  // 2. 显式 selectAllOnFocus —— 桌面平台(Win/Linux/macOS)默认 true,
+  //    聚焦时会无条件全选,预设选区挡不住,必须跟随 widget.selectAll。
   late final TextEditingController _controller =
       TextEditingController(text: widget.initialValue)
-        ..selection =
-            TextSelection.collapsed(offset: widget.initialValue.length);
+        ..selection = widget.selectAll
+            ? TextSelection(baseOffset: 0, extentOffset: widget.initialValue.length)
+            : TextSelection.collapsed(offset: widget.initialValue.length);
   late final FocusNode _focusNode = FocusNode();
 
   /// 防止提交/取消后失焦回调二次触发。
@@ -118,8 +124,8 @@ class _InlineEditorState extends State<InlineEditor> {
           focusNode: _focusNode,
           tokens: t,
           contentPadding: widget.contentPadding,
-          // 桌面平台默认聚焦全选,单元格就地编辑需要的是"光标置于末尾"
-          selectAllOnFocus: false,
+          // 聚焦全选行为跟随 widget.selectAll(桌面平台默认全选,不显式传会覆盖光标末尾模式)
+          selectAllOnFocus: widget.selectAll,
           onSubmitted: (_) => _finish(),
         ),
       ),
