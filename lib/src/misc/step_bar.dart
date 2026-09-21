@@ -41,7 +41,7 @@ class StepBar extends StatelessWidget {
           if (i > 0)
             Container(
               width: t.compactSpacing * 2,
-              height: 1,
+              height: t.borderWidth,
               color: i <= currentIndex ? t.primaryColor : t.borderColor,
             ),
           _StepItem(

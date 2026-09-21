@@ -719,13 +719,13 @@ class _ExportImportTabState extends State<_ExportImportTab> {
             isDense: true,
             contentPadding: EdgeInsets.all(t.compactSpacing),
             border: OutlineInputBorder(
-              borderSide: BorderSide(color: t.borderColor),
+              borderSide: BorderSide(color: t.borderColor, width: t.borderWidth),
             ),
             enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: t.borderColor),
+              borderSide: BorderSide(color: t.borderColor, width: t.borderWidth),
             ),
             focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: t.primaryColor),
+              borderSide: BorderSide(color: t.primaryColor, width: t.borderWidth),
             ),
           ),
         ),

@@ -158,10 +158,24 @@ class DialogBox extends StatelessWidget {
                         titleBar,
                         if (body != null) body,
                         if (footer != null)
-                          Padding(
+                          // 底部动作条:桌面对话框把按钮摆在一条浅灰带里,用一条
+                          // 分隔线与正文分开(Navicat 实测:条底 #F0F0F0、上方
+                          // 1px #E5E5E5 分隔线、内边距 10/9),按钮的面色比条底更
+                          // 接近纸白,层次才出得来。整条铺满对话框宽度,内边距由
+                          // Container 提供,这样浅灰底能一直顶到对话框边框。
+                          Container(
+                            decoration: BoxDecoration(
+                              color: t.secondaryColor,
+                              border: Border(
+                                top: BorderSide(
+                                  color: t.borderColor,
+                                  width: t.borderWidth,
+                                ),
+                              ),
+                            ),
                             padding: EdgeInsets.symmetric(
-                              horizontal: t.controlPaddingX,
-                              vertical: t.compactSpacing * 2,
+                              horizontal: t.compactSpacing * 2 + 2,
+                              vertical: t.compactSpacing * 2 + 1,
                             ),
                             child: footer!,
                           ),

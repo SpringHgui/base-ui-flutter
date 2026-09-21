@@ -75,6 +75,7 @@ export 'src/lists/list_item.dart';
 export 'src/lists/tree_view.dart';
 export 'src/lists/data_grid_view.dart';
 export 'src/lists/marquee_selector.dart';
+export 'src/lists/threshold_draggable.dart';
 export 'src/lists/property_grid.dart';
 
 // ── Containers ──────────────────────────────────────────────────────────────

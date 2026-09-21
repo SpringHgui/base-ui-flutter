@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/painting.dart' show Color;
+import 'package:flutter/widgets.dart' show BuildContext, MediaQuery;
 
 /// Immutable design tokens that own every visual decision in base_ui_flutter.
 ///
@@ -50,6 +51,16 @@ class DesktopTokens {
     this.borderWidth = 1.0,
     this.cornerRadius = 0.0,
     this.controlPaddingX = 12.0,
+    this.buttonHeight = 24.0,
+    this.buttonMinWidth = 73.0,
+    this.buttonFaceColor = const Color(0xFFF0F0F0),
+    this.buttonBorderColor = const Color(0xFFACACAC),
+    // Aero/VCL 热态:面色转成强调色的浅色调,边线换成强调色本身 ——
+    // 桌面按钮的 hover 是"变色"而不是"变暗",见 Button 的说明。
+    this.buttonHoverFaceColor = const Color(0xFFE0EEF9),
+    this.buttonHoverBorderColor = const Color(0xFF0078D4),
+    this.buttonPressedFaceColor = const Color(0xFFB3D6F2),
+    this.buttonPressedBorderColor = const Color(0xFF006BBE),
     // ── shadcn semantic roles ─────────────────────────────────────────────
     this.mutedColor = const Color(0xFFF0F0F0),
     this.mutedForegroundColor = const Color(0xFFA0A0A0),
@@ -115,6 +126,15 @@ class DesktopTokens {
     borderWidth: 1.0,
     cornerRadius: 6.0,
     controlPaddingX: 12.0,
+    // shadcn 的按钮与输入同高,沿用其 neutral 面/边色
+    buttonHeight: 36.0,
+    buttonFaceColor: Color(0xFFF4F4F5), // neutral-100
+    buttonBorderColor: Color(0xFFE4E4E7), // neutral-200
+    // shadcn 是中性色语言,热态只加深一档,不引入色相
+    buttonHoverFaceColor: Color(0xFFE4E4E7), // neutral-200
+    buttonHoverBorderColor: Color(0xFFD4D4D8), // neutral-300
+    buttonPressedFaceColor: Color(0xFFD4D4D8), // neutral-300
+    buttonPressedBorderColor: Color(0xFFA1A1AA), // neutral-400
     mutedColor: Color(0xFFF4F4F5),
     mutedForegroundColor: Color(0xFF71717A), // neutral-500
     secondaryColor: Color(0xFFF4F4F5),
@@ -186,7 +206,16 @@ class DesktopTokens {
   /// Standard height of a button or single-line input.
   final double controlHeight;
 
-  /// Hairline border width of controls.
+  /// Hairline border width of controls, in logical pixels.
+  ///
+  /// `1.0` means "one *logical* pixel", which is all the WinForms default can
+  /// assume. Native desktop toolkits (VCL / WinForms) instead draw borders one
+  /// *device* pixel wide regardless of the display scale, so the logical width
+  /// has to shrink on high-DPI screens. Derive it with [devicePixelHairlineOf]
+  /// or [withHairlineBorders]: a Navicat dialog captured on a 200 % display,
+  /// for instance, shows every border (dialog frame, tab outline, input,
+  /// button, grid line) as exactly one physical pixel = 0.5 logical px, while
+  /// a fixed `1.0` paints two and reads twice as heavy.
   final double borderWidth;
 
   /// Corner radius of controls (0 = square, WinForm-style).
@@ -194,6 +223,52 @@ class DesktopTokens {
 
   /// Horizontal padding inside a button or input.
   final double controlPaddingX;
+
+  /// Height of a push button.
+  ///
+  /// Deliberately independent of [controlHeight]: desktop toolkits draw a
+  /// push button one notch taller than a single-line editor (VCL/WinForms:
+  /// 24–25 px button vs 20–21 px text box), so the two must be able to
+  /// diverge. Defaults to the VCL push-button height of 24.
+  final double buttonHeight;
+
+  /// Minimum width of a text push button (0 = shrink to content).
+  ///
+  /// Desktop dialogs lay their action buttons out on a fixed column — VCL's
+  /// default `TButton` is 75 px wide, Navicat's dialog buttons measure 73 px —
+  /// so short labels ("确定" / "取消") still get a full-width button instead of
+  /// hugging the glyphs. Buttons with a custom `child` (toolbar / icon
+  /// buttons) ignore this and size to content.
+  final double buttonMinWidth;
+
+  /// Push button face color.
+  ///
+  /// Kept apart from [controlColor] because dialog buttons are usually drawn
+  /// *lighter* than the surrounding chrome (Navicat: `#FDFDFD` face on a
+  /// `#F0F0F0` footer strip), while [controlColor] doubles as the chrome fill.
+  final Color buttonFaceColor;
+
+  /// Push button hairline border color.
+  final Color buttonBorderColor;
+
+  /// Push button face color while hovered.
+  ///
+  /// A separate color rather than "face + [hoverOverlayColor]": desktop
+  /// buttons signal hover by **shifting hue toward the accent** (Windows
+  /// measures `#E0EEF9` fill under a `#0078D4` outline), not by darkening the
+  /// neutral face — a plain overlay can only produce a gray, which reads as
+  /// "duller" rather than "active".
+  final Color buttonHoverFaceColor;
+
+  /// Push button hairline border color while hovered.
+  final Color buttonHoverBorderColor;
+
+  /// Push button face color while pressed. One step *deeper* than
+  /// [buttonHoverFaceColor], same hue.
+  final Color buttonPressedFaceColor;
+
+  /// Push button hairline border color while pressed.
+  final Color buttonPressedBorderColor;
 
   // ── shadcn semantic roles ───────────────────────────────────────────────
 
@@ -279,6 +354,29 @@ class DesktopTokens {
   /// Default categorical palette used by `ShChart` series.
   final List<Color> chartColors;
 
+  /// Border width of a native desktop hairline: exactly one device pixel,
+  /// expressed in logical pixels for the display the [context] sits on.
+  ///
+  /// Returns `1.0` at 100 % scaling (so single-DPI layouts are unaffected) and
+  /// `0.5` at 200 %, which is what makes a border land on one physical pixel
+  /// instead of two. Never returns less than a quarter pixel, so extreme
+  /// scale factors cannot make a border disappear.
+  static double devicePixelHairlineOf(BuildContext context) {
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
+    if (dpr <= 1.0) return 1.0;
+    return (1.0 / dpr).clamp(0.25, 1.0);
+  }
+
+  /// These tokens with [borderWidth] resolved to a one-device-pixel hairline
+  /// for the display [context] sits on.
+  ///
+  /// Wrap the app's `TokenScope` tokens with this to get native-looking thin
+  /// borders everywhere at once — every base_ui_flutter component reads
+  /// [borderWidth] rather than hard-coding a stroke, so a single call unifies
+  /// dialog frames, tab outlines, inputs, buttons and grid lines.
+  DesktopTokens withHairlineBorders(BuildContext context) =>
+      copyWith(borderWidth: devicePixelHairlineOf(context));
+
   /// Returns a copy of these tokens with the given fields replaced.
   DesktopTokens copyWith({
     Color? primaryColor,
@@ -298,6 +396,14 @@ class DesktopTokens {
     double? borderWidth,
     double? cornerRadius,
     double? controlPaddingX,
+    double? buttonHeight,
+    double? buttonMinWidth,
+    Color? buttonFaceColor,
+    Color? buttonBorderColor,
+    Color? buttonHoverFaceColor,
+    Color? buttonHoverBorderColor,
+    Color? buttonPressedFaceColor,
+    Color? buttonPressedBorderColor,
     Color? mutedColor,
     Color? mutedForegroundColor,
     Color? secondaryColor,
@@ -345,13 +451,25 @@ class DesktopTokens {
       borderWidth: borderWidth ?? this.borderWidth,
       cornerRadius: cornerRadius ?? this.cornerRadius,
       controlPaddingX: controlPaddingX ?? this.controlPaddingX,
+      buttonHeight: buttonHeight ?? this.buttonHeight,
+      buttonMinWidth: buttonMinWidth ?? this.buttonMinWidth,
+      buttonFaceColor: buttonFaceColor ?? this.buttonFaceColor,
+      buttonBorderColor: buttonBorderColor ?? this.buttonBorderColor,
+      buttonHoverFaceColor: buttonHoverFaceColor ?? this.buttonHoverFaceColor,
+      buttonHoverBorderColor:
+          buttonHoverBorderColor ?? this.buttonHoverBorderColor,
+      buttonPressedFaceColor:
+          buttonPressedFaceColor ?? this.buttonPressedFaceColor,
+      buttonPressedBorderColor:
+          buttonPressedBorderColor ?? this.buttonPressedBorderColor,
       mutedColor: mutedColor ?? this.mutedColor,
       mutedForegroundColor: mutedForegroundColor ?? this.mutedForegroundColor,
       secondaryColor: secondaryColor ?? this.secondaryColor,
       secondaryForegroundColor:
           secondaryForegroundColor ?? this.secondaryForegroundColor,
       accentColor: accentColor ?? this.accentColor,
-      accentForegroundColor: accentForegroundColor ?? this.accentForegroundColor,
+      accentForegroundColor:
+          accentForegroundColor ?? this.accentForegroundColor,
       destructiveColor: destructiveColor ?? this.destructiveColor,
       destructiveForegroundColor:
           destructiveForegroundColor ?? this.destructiveForegroundColor,
@@ -399,6 +517,14 @@ class DesktopTokens {
           other.borderWidth == borderWidth &&
           other.cornerRadius == cornerRadius &&
           other.controlPaddingX == controlPaddingX &&
+          other.buttonHeight == buttonHeight &&
+          other.buttonMinWidth == buttonMinWidth &&
+          other.buttonFaceColor == buttonFaceColor &&
+          other.buttonBorderColor == buttonBorderColor &&
+          other.buttonHoverFaceColor == buttonHoverFaceColor &&
+          other.buttonHoverBorderColor == buttonHoverBorderColor &&
+          other.buttonPressedFaceColor == buttonPressedFaceColor &&
+          other.buttonPressedBorderColor == buttonPressedBorderColor &&
           other.mutedColor == mutedColor &&
           other.mutedForegroundColor == mutedForegroundColor &&
           other.secondaryColor == secondaryColor &&
@@ -429,49 +555,57 @@ class DesktopTokens {
 
   @override
   int get hashCode => Object.hashAll([
-        primaryColor,
-        backgroundColor,
-        foregroundColor,
-        borderColor,
-        surfaceColor,
-        controlColor,
-        controlHoverColor,
-        controlPressedColor,
-        controlDisabledColor,
-        disabledForegroundColor,
-        fontFamily,
-        fontSize,
-        compactSpacing,
-        controlHeight,
-        borderWidth,
-        cornerRadius,
-        controlPaddingX,
-        mutedColor,
-        mutedForegroundColor,
-        secondaryColor,
-        secondaryForegroundColor,
-        accentColor,
-        accentForegroundColor,
-        destructiveColor,
-        destructiveForegroundColor,
-        cardColor,
-        cardForegroundColor,
-        popoverColor,
-        popoverForegroundColor,
-        ringColor,
-        ringWidth,
-        ringOffset,
-        radiusLg,
-        radiusXl,
-        radiusFull,
-        monoFontFamily,
-        shadowColor,
-        shadowBlur,
-        shadowOffsetY,
-        hoverOverlayColor,
-        pressedOverlayColor,
-        disabledOpacity,
-        barrierColor,
-        Object.hashAll(chartColors),
-      ]);
+    primaryColor,
+    backgroundColor,
+    foregroundColor,
+    borderColor,
+    surfaceColor,
+    controlColor,
+    controlHoverColor,
+    controlPressedColor,
+    controlDisabledColor,
+    disabledForegroundColor,
+    fontFamily,
+    fontSize,
+    compactSpacing,
+    controlHeight,
+    borderWidth,
+    cornerRadius,
+    controlPaddingX,
+    buttonHeight,
+    buttonMinWidth,
+    buttonFaceColor,
+    buttonBorderColor,
+    buttonHoverFaceColor,
+    buttonHoverBorderColor,
+    buttonPressedFaceColor,
+    buttonPressedBorderColor,
+    mutedColor,
+    mutedForegroundColor,
+    secondaryColor,
+    secondaryForegroundColor,
+    accentColor,
+    accentForegroundColor,
+    destructiveColor,
+    destructiveForegroundColor,
+    cardColor,
+    cardForegroundColor,
+    popoverColor,
+    popoverForegroundColor,
+    ringColor,
+    ringWidth,
+    ringOffset,
+    radiusLg,
+    radiusXl,
+    radiusFull,
+    monoFontFamily,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetY,
+    hoverOverlayColor,
+    pressedOverlayColor,
+    disabledOpacity,
+    barrierColor,
+    Object.hashAll(chartColors),
+  ]);
 }

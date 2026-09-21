@@ -123,7 +123,7 @@ class _MarqueeSelectorState extends State<MarqueeSelector> {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: t.primaryColor.withValues(alpha: 0.18),
-                    border: Border.all(color: t.primaryColor, width: 1),
+                    border: Border.all(color: t.primaryColor, width: t.borderWidth),
                   ),
                 ),
               ),

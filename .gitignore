@@ -27,6 +27,7 @@ migrate_working_dir/
 **/doc/api/
 .dart_tool/
 .flutter-plugins-dependencies
+.flutter_tool_state
 /build/
 /coverage/
 /example/pubspec.lock

@@ -87,7 +87,7 @@ class CheckBox extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Colors.transparent,
-          border: Border.all(color: boxBorderColor, width: 1),
+          border: Border.all(color: boxBorderColor, width: t.borderWidth),
           borderRadius: BorderRadius.circular(2),
         ),
         child: value
