@@ -1,5 +1,8 @@
 ## Unreleased
 
+* `ComboBox`（common）新增 `searchable`（默认 `false`）：只读下拉的**面板顶部多一条搜索行**（放大镜 + 单行输入，文案走 `searchHint` / `noMatchText`，缺省英文、中文由宿主传入），输入即按 `itemToString` 做大小写不敏感的子串过滤，无匹配时留一行占位文案（面板不塌）。**输入只是过滤、不是取值** —— 这一点与 `editable`（允许提交 `items` 之外的自定义值）刻意分开：连接 / 库 / 模式这类「值必须来自列表」的选择器可以放心开输入搜索，敲错的查询永远提交不上去（Enter 取第一个匹配项，Escape 关面板，面板每次打开都从「无筛选」开始）。面板高度随过滤结果收缩（最多 10 行），搜索行严格等于 `controlHeight`、由独立一层 1px 分隔线收口。
+  同时修掉两处面板刷新缺陷（旧代码里都存在）：① 候选列表 / 选中下标原先在 `_buildOverlayEntry` 里**捕获**，而 `OverlayEntry` 刷新时只重跑自己的 builder —— 过滤与 hover 高亮都会拿着「打开那一刻」的旧值不放（症状就是输入没反应、鼠标划过不高亮），现在一律在 builder 内现算，刷新统一走 `markNeedsBuild`；② 面板外层 `Container` 的 `decoration` 边框会被 `Container` 当作内边距用，子项可用高度比 `maxHeight` 少掉两条边框 —— 一旦把列表换成固定高度就稳定溢出 2px，故去掉 `constraints`（各行高度本就算死，不需要兜底）。回归测试见 `test/widgets_test.dart`（输入窄化列表 / Enter 取首个匹配 / 无匹配查询绝不提交 / 只读模式无搜索行）。
+
 * `TabControl` 标签头改为**按内容自适应**（对齐 Navicat 的紧凑标签条）：高度 = 标签行高 + `compactSpacing * 0.75 * 2` + 边框（winForm 令牌下未选中 20.65 / 选中 23.65，Navicat 实测 20.5 / 23），宽度 = 实测文本宽 + `compactSpacing * 2 * 2`（下限 `compactSpacing * 11` = 44）。`barHeight` / `tabWidth` 只在调用方**显式传参**时才固定宽度/高度，原先各宿主硬编码的 24/26/30/32 与 56/62/72/76/82/96 一类数字全部可以删掉 —— 长度不一的标题（「消息 / 结果 1 / 结果 12」）不再被压成省略号，短标题也不再白占一整格。测量文本必须用 `DefaultTextStyle.of(context).style.merge(标签样式)`：Material 的默认文本样式带 `letterSpacing`，拿裸 `TextStyle` 量会偏窄、长标题被压成省略号；可关闭标签（`TabItem.onClose`）在自动宽度里额外预留 20px 关闭按钮位（按钮 hover 才出现，不预留会挤掉文案）。新增 `TabControl.stripHeight(tokens)` 静态入口，供宿主计算「标签条 + 页面面板」占掉的高度 —— 对话框里原先硬编码的 `_kTabChromeHeight = 32` 之类已无必要（组件度量一改就会静默错位）。
 
 * `TabControl` 标签条 chrome 修正：每个标签都画顶边 + 右侧 1px 分隔线，但**左边线只在「标签条与正文构成闭合框」时才画**（`drawLeftEdge = hasBody && i == 0`，供对话框封左边框）；纯标签条场景（所有 `TabItem.child` 为 `null`，如文档标签条）不画 —— 它悬在背景上，画出来就是面板左边框旁凭空多出一条 1px 竖线。未选中标签底色 = 向 `surfaceColor` 提亮 22%。

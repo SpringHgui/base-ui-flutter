@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
 
 /// A WinForm-style combo box (drop-down list).
 ///
-/// Supports both read-only and editable modes. When [editable] is `true` the
-/// user can type a custom value; otherwise only items from [items] may be
-/// selected.
+/// Three flavours:
+/// * read-only (default) — the drop-down list is the only way to pick a value;
+/// * [searchable] — same as read-only, but the drop-down panel carries a search
+///   row so long item lists can be narrowed down by typing;
+/// * [editable] — the field itself accepts free text, i.e. a value that is not
+///   in [items] may be submitted.
 class ComboBox<T extends Object> extends StatefulWidget {
   const ComboBox({
     super.key,
@@ -15,6 +19,9 @@ class ComboBox<T extends Object> extends StatefulWidget {
     this.value,
     this.onChanged,
     this.editable = false,
+    this.searchable = false,
+    this.searchHint,
+    this.noMatchText = 'No matches',
     this.hint,
     this.tokens,
     this.focusNode,
@@ -34,6 +41,24 @@ class ComboBox<T extends Object> extends StatefulWidget {
 
   /// When `true`, the user can type a custom value.
   final bool editable;
+
+  /// When `true`, the drop-down panel opens with a search row: typing a query
+  /// narrows the list down (case-insensitive substring match on
+  /// [itemToString]).
+  ///
+  /// The typed text is a **filter, never a value** — unlike [editable], a query
+  /// that matches nothing cannot be committed, so pickers whose value must come
+  /// from the list (connection / database / schema names) get type-to-search
+  /// without the risk of a fabricated value. Ignored when [editable] is `true`
+  /// (the field itself already filters there).
+  final bool searchable;
+
+  /// Placeholder of the search row ([searchable]). Defaults to English like the
+  /// rest of the library; hosts with other locales pass their own.
+  final String? searchHint;
+
+  /// Shown in the panel when the search query matches no item ([searchable]).
+  final String noMatchText;
 
   /// Placeholder shown when nothing is selected.
   final String? hint;
@@ -75,6 +100,44 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
 
   /// Layer link used to position the drop-down popup below the control.
   final LayerLink _layerLink = LayerLink();
+
+  /// Search row state ([ComboBox.searchable]). The query is a *filter*: it
+  /// lives here and never leaks into [widget.value].
+  final TextEditingController _queryController = TextEditingController();
+  final FocusNode _queryFocusNode = FocusNode();
+  String _query = '';
+
+  /// Whether the open panel shows the search row ([searchable] wins only in
+  /// read-only mode; an editable field is its own filter).
+  bool get _showSearchRow => widget.searchable && !widget.editable;
+
+  /// [widget.items] narrowed by the current query.
+  List<T> get _matchingItems {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.items;
+    return widget.items
+        .where((item) => _itemString(item).toLowerCase().contains(query))
+        .toList(growable: false);
+  }
+
+  /// Panel content lives in an [OverlayEntry] with its own builder — an outer
+  /// `setState` does not rebuild it, so it has to be marked dirty explicitly.
+  void _refreshPanel() => _overlayEntry?.markNeedsBuild();
+
+  void _onQueryChanged(String value) {
+    _query = value;
+    _hoverIndex = -1;
+    _refreshPanel();
+  }
+
+  /// Enter in the search row commits the first match: the list is already
+  /// filtered, so its first row is the best candidate.
+  void _selectFirstMatch() {
+    final items = _matchingItems;
+    if (items.isEmpty) return;
+    widget.onChanged?.call(items.first);
+    _closeDropDown();
+  }
 
   /// Key on the combo box surface, used to measure its width for the popup.
   final GlobalKey _boxKey = GlobalKey();
@@ -141,6 +204,8 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
     _focusNode.removeListener(_handleFocusChange);
     if (_ownsFocusNode) _focusNode.dispose();
     _controller.dispose();
+    _queryController.dispose();
+    _queryFocusNode.dispose();
     super.dispose();
   }
 
@@ -274,6 +339,10 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
   }
 
   void _openDropDown(DesktopTokens t) {
+    // 每次打开都从「无筛选」开始:上一次的查询不该影响这一次的选择。
+    _query = '';
+    _queryController.clear();
+    _hoverIndex = -1;
     setState(() => _dropDownOpen = true);
     // Use overlay: insert an OverlayEntry so the popup floats above siblings.
     _overlayEntry = _buildOverlayEntry(t);
@@ -283,25 +352,31 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
   void _closeDropDown() {
     _overlayEntry?.remove();
     _overlayEntry = null;
+    // 搜索行随面板一起消失,焦点留在它上面会指向一个已卸载的节点。
+    if (_queryFocusNode.hasFocus) _queryFocusNode.unfocus();
     if (mounted) setState(() => _dropDownOpen = false);
   }
 
   OverlayEntry? _overlayEntry;
 
   OverlayEntry _buildOverlayEntry(DesktopTokens t) {
-    // Guard null value: `widget.value as T` would throw when nothing is
-    // selected yet, which happens inside the overlay builder and prevents
-    // the drop-down from ever appearing.
-    final selectedIndex = widget.value == null
-        ? -1
-        : widget.items.indexOf(widget.value as T);
-    final itemHeight = t.controlHeight;
-    final maxItems = widget.items.length;
-    final visibleItems = maxItems > 10 ? 10 : maxItems;
-    final panelHeight = visibleItems * itemHeight;
-
     return OverlayEntry(
       builder: (context) {
+        // 面板内容**必须在这里现算**:本方法只在打开时跑一次,之后的刷新(输入
+        // 筛选、hover 高亮)都只是重跑这个 builder。把候选列表捕获在外层作用域
+        // 里的话,过滤与高亮都会拿着打开那一刻的旧值,看起来就是「没反应」。
+        final items = _matchingItems;
+        // Guard null value: `widget.value as T` would throw when nothing is
+        // selected yet, which happens inside the overlay builder and prevents
+        // the drop-down from ever appearing.
+        final selectedIndex = widget.value == null
+            ? -1
+            : items.indexOf(widget.value as T);
+        final itemHeight = t.controlHeight;
+        final visibleItems = items.length > 10 ? 10 : items.length;
+        // 无匹配时留一行放占位文案,面板不会塌成一条线。
+        final listHeight = (visibleItems == 0 ? 1 : visibleItems) * itemHeight;
+
         return Stack(
           children: [
             // Full-screen dismiss barrier (translucent, no child → pass-through)
@@ -316,9 +391,11 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
               link: _layerLink,
               showWhenUnlinked: false,
               offset: Offset(0, t.controlHeight),
+              // 不加 `constraints`:各行高度都已算死,再压一个 maxHeight 反而会与
+              // `decoration` 的边框打架 —— `Container` 把 `Border.all` 当内边距用,
+              // 子项可用的高度会比 maxHeight 少掉两条边框,固定高度的列表就溢出。
               child: Container(
                 width: _boxWidth(),
-                constraints: BoxConstraints(maxHeight: panelHeight.toDouble()),
                 decoration: BoxDecoration(
                   color: t.surfaceColor,
                   border: Border.all(
@@ -326,59 +403,80 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
                     width: t.borderWidth,
                   ),
                 ),
-                child: ListView.builder(
-                  physics: widget.items.length <= 10
-                      ? const NeverScrollableScrollPhysics()
-                      : null,
-                  padding: EdgeInsets.zero,
-                  shrinkWrap: true,
-                  itemCount: widget.items.length,
-                  itemExtent: itemHeight,
-                  itemBuilder: (context, index) {
-                    final item = widget.items[index];
-                    final isSelected = index == selectedIndex;
-                    final isHovered = _hoverIndex == index;
-                    return MouseRegion(
-                      onEnter: (_) => setState(() => _hoverIndex = index),
-                      onExit: (_) => setState(() {
-                        if (_hoverIndex == index) _hoverIndex = -1;
-                      }),
-                      child: Listener(
-                        behavior: HitTestBehavior.opaque,
-                        onPointerDown: (_) {
-                          widget.onChanged?.call(item);
-                          _closeDropDown();
-                        },
-                        child: Container(
-                          color: isSelected
-                              ? t.primaryColor
-                              : (isHovered ? t.controlHoverColor : null),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: t.controlPaddingX,
-                          ),
-                          alignment: Alignment.centerLeft,
-                          child: _labeled(
-                            Text(
-                              _itemString(item),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                              style: TextStyle(
-                                fontFamily: t.fontFamily,
-                                fontSize: t.fontSize,
-                                color: isSelected
-                                    ? t.accentForegroundColor
-                                    : t.foregroundColor,
-                                decoration: TextDecoration.none,
-                                fontWeight: FontWeight.w400,
-                              ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  // 分隔线要铺满面板宽度;Column 默认 center,横向会被压成 0。
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_showSearchRow) ...[
+                      _searchRow(t),
+                      // 分隔线独立一层:Container 的 decoration 边框会挤掉子项高度,
+                      // 挂在搜索行上会让它比 `controlHeight` 矮一个边框。
+                      Container(height: t.borderWidth, color: t.borderColor),
+                    ],
+                    SizedBox(
+                      height: listHeight,
+                      child: items.isEmpty
+                          ? _emptyRow(t)
+                          : ListView.builder(
+                              physics: items.length <= 10
+                                  ? const NeverScrollableScrollPhysics()
+                                  : null,
+                              padding: EdgeInsets.zero,
+                              itemCount: items.length,
+                              itemExtent: itemHeight,
+                              itemBuilder: (context, index) {
+                                final item = items[index];
+                                final isSelected = index == selectedIndex;
+                                final isHovered = _hoverIndex == index;
+                                return MouseRegion(
+                                  onEnter: (_) => _setHoverIndex(index),
+                                  onExit: (_) {
+                                    if (_hoverIndex == index) {
+                                      _setHoverIndex(-1);
+                                    }
+                                  },
+                                  child: Listener(
+                                    behavior: HitTestBehavior.opaque,
+                                    onPointerDown: (_) {
+                                      widget.onChanged?.call(item);
+                                      _closeDropDown();
+                                    },
+                                    child: Container(
+                                      color: isSelected
+                                          ? t.primaryColor
+                                          : (isHovered
+                                                ? t.controlHoverColor
+                                                : null),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: t.controlPaddingX,
+                                      ),
+                                      alignment: Alignment.centerLeft,
+                                      child: _labeled(
+                                        Text(
+                                          _itemString(item),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                          style: TextStyle(
+                                            fontFamily: t.fontFamily,
+                                            fontSize: t.fontSize,
+                                            color: isSelected
+                                                ? t.accentForegroundColor
+                                                : t.foregroundColor,
+                                            decoration: TextDecoration.none,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                        _iconOf(item, t),
+                                        t,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                            _iconOf(item, t),
-                            t,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -389,6 +487,109 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
   }
 
   int _hoverIndex = -1;
+
+  /// hover 高亮同样画在 [OverlayEntry] 里,只 `setState` 不会重绘面板 —— 必须
+  /// 显式把入口标脏(与 [_onQueryChanged] 同一原因)。
+  void _setHoverIndex(int index) {
+    if (_hoverIndex == index) return;
+    _hoverIndex = index;
+    _refreshPanel();
+  }
+
+  /// 面板顶部的搜索行([ComboBox.searchable]):放大镜 + 单行输入框。
+  ///
+  /// 高度严格等于 `controlHeight`(与闭合态控件等高),所以**不能**用带
+  /// `decoration` 的 `Container` 包它 —— `Container` 会把 `Border` 的宽度当作
+  /// 内边距挤掉子项高度,搜索框就会被压矮;分隔线由调用方另起一层画。
+  Widget _searchRow(DesktopTokens t) {
+    final double padV = (t.controlHeight - t.fontSize) / 2;
+    return SizedBox(
+      height: t.controlHeight,
+      child: Listener(
+        // 点行内空白 / 放大镜也能开始输入。
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (_) {
+          if (!_queryFocusNode.hasFocus) _queryFocusNode.requestFocus();
+        },
+        child: Row(
+          children: [
+            SizedBox(width: t.controlPaddingX),
+            Icon(
+              Icons.search,
+              size: t.fontSize + 2,
+              color: t.mutedForegroundColor,
+            ),
+            SizedBox(width: t.compactSpacing),
+            Expanded(
+              child: CallbackShortcuts(
+                bindings: {
+                  const SingleActivator(LogicalKeyboardKey.escape):
+                      _closeDropDown,
+                },
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: TextField(
+                    controller: _queryController,
+                    focusNode: _queryFocusNode,
+                    autofocus: true,
+                    cursorColor: t.primaryColor,
+                    textAlignVertical: TextAlignVertical.center,
+                    style: TextStyle(
+                      fontFamily: t.fontFamily,
+                      fontSize: t.fontSize,
+                      color: t.foregroundColor,
+                      height: 1.0,
+                    ),
+                    // Enter = 取第一个匹配项;列表已按查询过滤过,首行即最佳候选。
+                    onSubmitted: (_) => _selectFirstMatch(),
+                    onChanged: _onQueryChanged,
+                    decoration: InputDecoration(
+                      hintText: widget.searchHint,
+                      hintStyle: TextStyle(
+                        fontFamily: t.fontFamily,
+                        fontSize: t.fontSize,
+                        color: t.disabledForegroundColor,
+                      ),
+                      isDense: true,
+                      visualDensity: VisualDensity.standard,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: padV < 0 ? 0 : padV,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: t.compactSpacing),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 查询无匹配时的占位行(高度与候选项一致,面板不塌)。
+  Widget _emptyRow(DesktopTokens t) => Padding(
+    padding: EdgeInsets.symmetric(horizontal: t.controlPaddingX),
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        widget.noMatchText,
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+        style: TextStyle(
+          fontFamily: t.fontFamily,
+          fontSize: t.fontSize,
+          color: t.mutedForegroundColor,
+          decoration: TextDecoration.none,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    ),
+  );
 
   /// Cached combo box width; refreshed from the render tree by [_boxWidth].
   double _lastBoxWidth = 200;

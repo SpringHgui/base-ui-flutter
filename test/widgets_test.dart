@@ -147,6 +147,124 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Apple'), findsOneWidget);
     });
+
+    // `searchable`:面板顶部多一条搜索行,输入只做过滤 —— 值仍必须从列表里点选,
+    // 这是它与 `editable`(允许提交自定义值)的分界。
+    testWidgets('searchable: typed query narrows the list, picking still wins',
+        (tester) async {
+      String? selected;
+      await tester.pumpWidget(
+        wrap(SizedBox(
+          width: 250,
+          child: ComboBox<String>(
+            items: const ['Apple', 'Banana', 'Cherry'],
+            value: null,
+            searchable: true,
+            searchHint: 'filter',
+            noMatchText: 'nothing here',
+            onChanged: (v) => selected = v,
+          ),
+        )),
+      );
+
+      await tester.tap(find.byType(ComboBox<String>));
+      await tester.pumpAndSettle();
+
+      // 未输入时全量候选 + 搜索行提示都在。
+      expect(find.text('Apple'), findsOneWidget);
+      expect(find.text('Banana'), findsOneWidget);
+      expect(find.text('filter'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'an');
+      await tester.pumpAndSettle();
+      expect(find.text('Banana'), findsOneWidget);
+      expect(find.text('Apple'), findsNothing);
+      expect(find.text('Cherry'), findsNothing);
+
+      // 无匹配 → 占位文案,面板不塌。
+      await tester.enterText(find.byType(TextField), 'zzz');
+      await tester.pumpAndSettle();
+      expect(find.text('nothing here'), findsOneWidget);
+      expect(find.text('Banana'), findsNothing);
+
+      // 过滤后点选项,照旧提交并收起面板。
+      await tester.enterText(find.byType(TextField), 'che');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cherry'));
+      await tester.pumpAndSettle();
+      expect(selected, 'Cherry');
+      expect(find.text('nothing here'), findsNothing);
+    });
+
+    testWidgets('searchable: Enter commits the first match', (tester) async {
+      String? selected;
+      await tester.pumpWidget(
+        wrap(SizedBox(
+          width: 250,
+          child: ComboBox<String>(
+            items: const ['Apple', 'Banana', 'Cherry'],
+            value: null,
+            searchable: true,
+            onChanged: (v) => selected = v,
+          ),
+        )),
+      );
+
+      await tester.tap(find.byType(ComboBox<String>));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'err'); // 只剩 Cherry
+      await tester.pumpAndSettle();
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(selected, 'Cherry');
+    });
+
+    testWidgets('searchable: an unmatched query is never committed as a value',
+        (tester) async {
+      final calls = <String?>[];
+      await tester.pumpWidget(
+        wrap(SizedBox(
+          width: 250,
+          child: ComboBox<String>(
+            items: const ['Apple', 'Banana'],
+            value: null,
+            searchable: true,
+            onChanged: calls.add,
+          ),
+        )),
+      );
+
+      await tester.tap(find.byType(ComboBox<String>));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'zzz');
+      await tester.pumpAndSettle();
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(calls, isEmpty);
+    });
+
+    testWidgets('read-only drop-down has no search row by default',
+        (tester) async {
+      await tester.pumpWidget(
+        wrap(SizedBox(
+          width: 250,
+          child: ComboBox<String>(
+            items: const ['Apple', 'Banana'],
+            value: null,
+            onChanged: (_) {},
+          ),
+        )),
+      );
+
+      await tester.tap(find.byType(ComboBox<String>));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Apple'), findsOneWidget);
+      expect(find.text('Banana'), findsOneWidget);
+    });
   });
 
   group('TokenScope', () {
