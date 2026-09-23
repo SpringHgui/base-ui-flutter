@@ -118,10 +118,10 @@ class _StripTabState extends State<_StripTab> {
         onTapDown: enabled ? (_) => widget.onTap!.call() : null,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          color: bg,
           margin: EdgeInsets.symmetric(horizontal: t.compactSpacing),
           padding: EdgeInsets.symmetric(horizontal: fs),
           decoration: BoxDecoration(
+            color: bg,
             border: Border(
               bottom: BorderSide(
                 color: widget.selected ? t.primaryColor : Colors.transparent,

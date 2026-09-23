@@ -46,6 +46,7 @@ class ScrollBar extends StatefulWidget {
     this.tokens,
     this.thumbThickness,
     this.thumbVisibility = false,
+    this.notificationPredicate,
   });
 
   /// The scroll controller of the scrollable child.
@@ -66,6 +67,14 @@ class ScrollBar extends StatefulWidget {
   /// Whether the scrollbar thumb is always visible.
   /// Defaults to `false` (thumb appears only during scrolling).
   final bool thumbVisibility;
+
+  /// 透传给 Material Scrollbar 的通知过滤器。
+  ///
+  /// Material 默认只接收 `depth == 0` 的通知；纵向条挂在横向滚动区**外面**时
+  /// (宽表网格的标准摆法),内层纵向 Scrollable 的通知冒泡经过横向 Scrollable
+  /// 会被记为 depth 1,默认过滤器会全部拒收,纵向条因拿不到尺寸而整条不绘制。
+  /// 这种嵌套下传 `(n) => n.metrics.axis == Axis.vertical` 按轴过滤即可。
+  final ScrollNotificationPredicate? notificationPredicate;
 
   @override
   State<ScrollBar> createState() => _ScrollBarState();
@@ -115,6 +124,7 @@ class _ScrollBarState extends State<ScrollBar> {
             controller: widget.controller,
             thickness: _overBar ? _expanded : _slim,
             thumbVisibility: widget.thumbVisibility,
+            notificationPredicate: widget.notificationPredicate,
             child: widget.child,
           ),
         ),

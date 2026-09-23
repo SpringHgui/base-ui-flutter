@@ -357,6 +357,7 @@ const Map<String, String> zhTranslations = {
   'calendar.selectedDate': '已选日期:',
   'calendar.navigateHint': '使用箭头切换月份。',
   'calendar.clickHint': '点击日期进行选择。',
+  'calendar.quickPickHint': '点击标题可快速选择月份 / 年份，再点一次切换层级。',
   'calendar.minMax': '── 最小/最大日期 ──',
   'calendar.restrictedHint': '限制在 2025 年 6 月。',
   'calendar.outsideRange': '范围外的日期不可选择。',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
+import '../menus/text_box_context_menu.dart';
 
 /// A WinForm-style single-line text box.
 ///
@@ -26,6 +27,7 @@ class Input extends StatefulWidget {
     this.textAlign,
     this.height,
     this.trailing,
+    this.showBorder = true,
   });
 
   /// Controls the text being edited.
@@ -88,6 +90,11 @@ class Input extends StatefulWidget {
   /// 渲染在边框内右缘的附加控件（如「…」浏览按钮、日历按钮）。
   /// 与 [obscureToggle] 的眼睛按钮可共存：眼睛在前、trailing 在最右。
   final Widget? trailing;
+
+  /// 是否绘制边框与底色。默认 `true`（有 1px 描边 + 控件底色）。
+  /// 传 `false` 得到贴附在宿主面板上的**无边框 / 无底**扁平输入（如列面板
+  /// 底部的内嵌搜索框）：去掉描边与白色底，文字直接落在宿主背景上。
+  final bool showBorder;
 
   @override
   State<Input> createState() => _InputState();
@@ -157,16 +164,22 @@ class _InputState extends State<Input> {
       height: widget.height ?? t.controlHeight,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: fillColor,
-          border: Border.all(color: borderColor, width: t.borderWidth),
+          color: widget.showBorder ? fillColor : Colors.transparent,
+          border: widget.showBorder
+              ? Border.all(color: borderColor, width: t.borderWidth)
+              : null,
           borderRadius: BorderRadius.circular(t.cornerRadius),
         ),
         child: (showToggle || trailing != null)
             ? Row(
                 children: [
                   Expanded(child: _textField(t)),
-                  if (showToggle) _obscureToggle(t),
-                  if (trailing != null) trailing,
+                  // 挂在字段内的按钮必须与输入框同属一个 tap region:否则按下它们
+                  // 会被 EditableText 当成「点到框外」而先失焦,宿主(如 InlineEditor
+                  // 的失焦即提交)会在抬起前就把字段拆掉,点击再也传不进来。
+                  if (showToggle)
+                    TextFieldTapRegion(child: _obscureToggle(t)),
+                  if (trailing != null) TextFieldTapRegion(child: trailing),
                 ],
               )
             : _textField(t),
@@ -192,6 +205,9 @@ class _InputState extends State<Input> {
       keyboardType: widget.keyboardType,
       obscureText: widget.obscureText && (widget.obscureToggle ? _obscured : true),
       selectAllOnFocus: widget.selectAllOnFocus,
+      // Flutter 默认的工具条是 Material 风格,换成与全库一致的 Win10 菜单
+      contextMenuBuilder: (context, editable) =>
+          buildTextBoxContextMenu(context, editable, tokens: t),
       textAlign: widget.textAlign ?? TextAlign.start,
       cursorWidth: 1.0,
       cursorColor: t.primaryColor,

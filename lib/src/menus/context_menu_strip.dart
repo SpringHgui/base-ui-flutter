@@ -8,6 +8,9 @@ import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
 import 'menu_strip.dart';
 
+/// 菜单面板的最小宽度(短条目也会撑到这个宽度,与 Win10 右键菜单一致)。
+const double _minWidth = 180.0;
+
 /// A WinForm-style right-click context menu.
 ///
 /// Wrap any subtree in a [ContextMenuStrip] to show a floating menu when the
@@ -146,7 +149,6 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
   @override
   Widget build(BuildContext context) {
     final t = widget.tokens;
-    const minWidth = 180.0;
 
     // Clamp the menu inside the screen: right-clicking near the bottom / right
     // edge would otherwise push the panel out of view.
@@ -157,7 +159,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
       final entryCount = widget.items.whereType<MenuItem>().length;
       final estimatedHeight =
           entryCount * t.controlHeight + t.compactSpacing * 2 + t.borderWidth * 2;
-      const estimatedWidth = minWidth + 24;
+      const estimatedWidth = _minWidth + 24;
       if (top + estimatedHeight > screen.height) {
         top = math.max(0, screen.height - estimatedHeight);
       }
@@ -182,32 +184,69 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
         Positioned(
           left: left,
           top: top,
-          child: MouseRegion(
-            onEnter: (_) => widget.onHoverEnter?.call(),
-            child: Material(
-              elevation: 2,
-              color: t.surfaceColor,
-              child: Container(
-                constraints: BoxConstraints(minWidth: minWidth),
-                padding: EdgeInsets.symmetric(vertical: t.compactSpacing),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                      color: t.borderColor, width: t.borderWidth),
-                ),
-                child: IntrinsicWidth(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: widget.items
-                        .map((m) => _buildEntry(m, t))
-                        .toList(),
-                  ),
-                ),
-              ),
-            ),
+          child: ContextMenuPanel(
+            items: widget.items,
+            tokens: t,
+            onDismiss: widget.onDismiss,
+            onHoverEnter: widget.onHoverEnter,
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The floating panel itself: hairline border + a column of menu entries.
+///
+/// Shared by [ContextMenuStrip] / [showContextMenu] and by the text box
+/// context menu (`buildTextBoxContextMenu`) so every menu in the library
+/// renders identically. It carries no positioning and no click-outside
+/// barrier — the caller wraps it (see [_ContextMenuOverlay]).
+class ContextMenuPanel extends StatelessWidget {
+  const ContextMenuPanel({
+    super.key,
+    required this.items,
+    required this.tokens,
+    required this.onDismiss,
+    this.onHoverEnter,
+  });
+
+  /// Menu entries, top to bottom.
+  final List<MenuModel> items;
+
+  /// Token set used for every visual value.
+  final DesktopTokens tokens;
+
+  /// Called after an entry is activated, to close the whole menu.
+  final VoidCallback onDismiss;
+
+  /// Invoked when the pointer enters this panel. Used by parent items to
+  /// cancel their delayed sub-menu close.
+  final VoidCallback? onHoverEnter;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = tokens;
+    return MouseRegion(
+      onEnter: (_) => onHoverEnter?.call(),
+      child: Material(
+        elevation: 2,
+        color: t.surfaceColor,
+        child: Container(
+          constraints: const BoxConstraints(minWidth: _minWidth),
+          padding: EdgeInsets.symmetric(vertical: t.compactSpacing),
+          decoration: BoxDecoration(
+            border: Border.all(color: t.borderColor, width: t.borderWidth),
+          ),
+          child: IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: items.map((m) => _buildEntry(m, t)).toList(),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -221,7 +260,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
       MenuItem() => _ContextMenuItem(
           item: model,
           tokens: t,
-          onDismiss: widget.onDismiss,
+          onDismiss: onDismiss,
         ),
     };
   }

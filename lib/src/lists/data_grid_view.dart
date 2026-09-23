@@ -141,6 +141,8 @@ class DataGridView extends StatefulWidget {
     this.sortColumn,
     this.sortAscending = true,
     this.selectedRows,
+    this.horizontalScrollController,
+    this.horizontalViewportWidth,
   });
 
   /// Column definitions.
@@ -289,8 +291,43 @@ class DataGridView extends StatefulWidget {
   /// expected to read modifier keys and update this set.
   final Set<int>? selectedRows;
 
+  /// 横向虚拟化(可选,默认关闭 → 行为与旧版逐字节一致)。
+  ///
+  /// 宽表下宿主把整个网格放进横向 `SingleChildScrollView`,而每一行的 `Row`
+  /// 会把**所有列**都建成真实 widget(哪怕横向滚出视口),于是「勾选列 / 选择 /
+  /// 缩放」等任何触发网格重建的操作成本 ∝ 可见行 × 全部列,而非 × 视口内列。
+  /// 传入 [horizontalScrollController](宿主横向滚动控制器)与
+  /// [horizontalViewportWidth](横向视口宽,像素)后,数据行只渲染与视口相交的
+  /// 列(用左右占位条撑出等宽,横向滚动 / 命中测试 / 选中坐标均不受影响),
+  /// 把每帧重建量降到 ∝ 可见行 × 视口内列。表头仍整行渲染(仅 1 行,且列宽
+  /// 调整 / 排序手柄需常驻),不受此开关影响。
+  final ScrollController? horizontalScrollController;
+
+  /// 横向视口宽度(逻辑像素)。与 [horizontalScrollController] 同时提供才启用
+  /// 横向虚拟化;通常由宿主用 `LayoutBuilder` 取网格可用宽度传入。
+  final double? horizontalViewportWidth;
+
   @override
   State<DataGridView> createState() => _DataGridViewState();
+}
+
+/// 横向虚拟化下,某帧数据行需要渲染的列窗口(元素坐标:行号列 + 数据列)。
+/// firstCol/lastCol 为闭区间的数据列下标(firstCol > lastCol 表示无数据列可见);
+/// rowNumber = 是否渲染行号列;leftPad/rightPad 为窗口左右两侧的占位像素,
+/// 三者 + 渲染列宽之和恒等于整行总宽,保证横向滚动范围与命中测试不受影响。
+class _HWin {
+  const _HWin(
+    this.firstCol,
+    this.lastCol,
+    this.rowNumber,
+    this.leftPad,
+    this.rightPad,
+  );
+  final int firstCol;
+  final int lastCol;
+  final bool rowNumber;
+  final double leftPad;
+  final double rightPad;
 }
 
 class _DataGridViewState extends State<DataGridView> {
@@ -325,12 +362,16 @@ class _DataGridViewState extends State<DataGridView> {
   static const double _autoScrollEdgeSize = 30.0;
   static const double _autoScrollSpeed = 12.0;
 
+  // ── 横向虚拟化:本帧渲染的列窗口(null = 未启用;build 里重算) ──
+  _HWin? _hWin;
+
   @override
   void initState() {
     super.initState();
     _ownsFocusNode = widget.focusNode == null;
     _focusNode = widget.focusNode ?? FocusNode();
     widget.dirtyTracker?.addListener(_onDirty);
+    widget.horizontalScrollController?.addListener(_onHScroll);
   }
 
   @override
@@ -340,12 +381,18 @@ class _DataGridViewState extends State<DataGridView> {
       oldWidget.dirtyTracker?.removeListener(_onDirty);
       widget.dirtyTracker?.addListener(_onDirty);
     }
+    if (oldWidget.horizontalScrollController !=
+        widget.horizontalScrollController) {
+      oldWidget.horizontalScrollController?.removeListener(_onHScroll);
+      widget.horizontalScrollController?.addListener(_onHScroll);
+    }
   }
 
   @override
   void dispose() {
     _stopAutoScroll();
     widget.dirtyTracker?.removeListener(_onDirty);
+    widget.horizontalScrollController?.removeListener(_onHScroll);
     if (_ownsFocusNode) _focusNode.dispose();
     super.dispose();
   }
@@ -354,12 +401,76 @@ class _DataGridViewState extends State<DataGridView> {
     if (mounted) setState(() {});
   }
 
+  /// 横向滚动:仅当渲染窗口跨越列边界变化时重建,避免逐像素 setState 抖动。
+  void _onHScroll() {
+    if (!mounted) return;
+    final next = _computeHWin();
+    final cur = _hWin;
+    if (next == null || cur == null) return;
+    if (next.firstCol != cur.firstCol ||
+        next.lastCol != cur.lastCol ||
+        next.rowNumber != cur.rowNumber) {
+      setState(() {});
+    }
+  }
+
+  /// 计算本帧数据行应渲染的列窗口;未启用横向虚拟化(缺控制器 / 视口宽 /
+  /// 显式列宽,或列数变化导致宽度表长度不符)时返回 null,由调用方整行渲染。
+  _HWin? _computeHWin() {
+    final hc = widget.horizontalScrollController;
+    final vw = widget.horizontalViewportWidth;
+    final widths = widget.columnWidths;
+    final n = widget.columns.length;
+    if (hc == null || vw == null || widths == null || widths.length != n || n == 0) {
+      return null;
+    }
+    final off = hc.hasClients ? hc.offset : 0.0;
+    final right = off + vw;
+    final rowOffset = widget.showRowNumbers ? 1 : 0;
+    final total = rowOffset + n;
+    final starts = List<double>.filled(total, 0);
+    final ends = List<double>.filled(total, 0);
+    var x = 0.0;
+    var e = 0;
+    if (rowOffset == 1) {
+      starts[e] = 0;
+      ends[e] = widget.rowNumberWidth;
+      x = widget.rowNumberWidth;
+      e = 1;
+    }
+    for (var c = 0; c < n; c++, e++) {
+      starts[e] = x;
+      ends[e] = x + widths[c];
+      x += widths[c];
+    }
+    final totalWidth = x;
+    // 首个右缘越过视口左界且非零宽的元素
+    var f = 0;
+    while (f < total && (ends[f] <= off || ends[f] == starts[f])) {
+      f++;
+    }
+    // 末个左缘在视口右界之内的元素
+    var l = total - 1;
+    while (l >= 0 && starts[l] >= right) {
+      l--;
+    }
+    if (f > l) {
+      // 视口落在两列之间 / 空表:渲染零列,用整宽占位保持滚动范围
+      return _HWin(0, -1, false, 0.0, totalWidth);
+    }
+    final renderRowNumber = rowOffset == 1 && f == 0;
+    final firstCol = (f - rowOffset).clamp(0, n - 1);
+    final lastCol = l - rowOffset;
+    return _HWin(firstCol, lastCol, renderRowNumber, starts[f], totalWidth - ends[l]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t =
         widget.tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
     final rh = widget.rowHeight ?? t.controlHeight;
     final multiSelect = widget.onCellsSelected != null;
+    _hWin = _computeHWin();
 
     Widget listArea = ListView.builder(
       controller: widget.verticalScrollController,
@@ -907,6 +1018,13 @@ class _DataGridViewState extends State<DataGridView> {
     final rowSelected = (multiRows != null && multiRows.isNotEmpty)
         ? multiRows.contains(row)
         : widget.selectedRow == row;
+    // 横向虚拟化窗口:null = 整行渲染(默认路径,逐字节同旧版)
+    final win = _hWin;
+    final renderRowNumber = win?.rowNumber ?? widget.showRowNumbers;
+    final firstCol = win?.firstCol ?? 0;
+    final lastCol = win?.lastCol ?? widget.columns.length - 1;
+    final leftPad = win?.leftPad ?? 0.0;
+    final rightPad = win?.rightPad ?? 0.0;
     return _DataGridRow(
       t: t,
       row: row,
@@ -926,6 +1044,11 @@ class _DataGridViewState extends State<DataGridView> {
       onCellDoubleTap: widget.onCellDoubleTap,
       onCellContext: widget.onCellContext,
       showRowNumbers: widget.showRowNumbers,
+      renderRowNumber: renderRowNumber,
+      firstCol: firstCol,
+      lastCol: lastCol,
+      leftPad: leftPad,
+      rightPad: rightPad,
       rowNumberWidth: widget.rowNumberWidth,
       rowNumberBuilder: widget.rowNumberBuilder,
       gridLineColor: widget.gridLineColor ?? t.borderColor,
@@ -964,6 +1087,11 @@ class _DataGridRow extends StatefulWidget {
     this.onCellDoubleTap,
     this.onCellContext,
     this.showRowNumbers = false,
+    required this.renderRowNumber,
+    required this.firstCol,
+    required this.lastCol,
+    required this.leftPad,
+    required this.rightPad,
     this.rowNumberWidth = 22,
     this.rowNumberBuilder,
     required this.gridLineColor,
@@ -993,6 +1121,13 @@ class _DataGridRow extends StatefulWidget {
   final void Function(int row, int col, Offset position)? onCellContext;
   final bool enabled;
   final bool showRowNumbers;
+  // 横向虚拟化窗口(由 _buildRow 传入;默认路径下 renderRowNumber=showRowNumbers、
+  // firstCol=0、lastCol=columns.length-1、左右占位 0 → 渲染与旧版逐字节一致)
+  final bool renderRowNumber;
+  final int firstCol;
+  final int lastCol;
+  final double leftPad;
+  final double rightPad;
   final double rowNumberWidth;
   final Widget Function(int row, bool rowSelected)? rowNumberBuilder;
   final Color gridLineColor;
@@ -1038,9 +1173,10 @@ class _DataGridRowState extends State<_DataGridRow> {
         ),
         child: Row(
           children: [
-            if (w.showRowNumbers) _buildRowNumberCell(),
-            for (var col = 0; col < w.columns.length; col++)
-              _buildCell(col),
+            if (w.leftPad > 0) SizedBox(width: w.leftPad),
+            if (w.renderRowNumber) _buildRowNumberCell(),
+            for (var col = w.firstCol; col <= w.lastCol; col++) _buildCell(col),
+            if (w.rightPad > 0) SizedBox(width: w.rightPad),
           ],
         ),
       ),

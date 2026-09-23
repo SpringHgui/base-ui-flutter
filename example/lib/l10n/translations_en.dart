@@ -357,6 +357,7 @@ const Map<String, String> enTranslations = {
   'calendar.selectedDate': 'Selected date:',
   'calendar.navigateHint': 'Use arrows to navigate months.',
   'calendar.clickHint': 'Click a date to select it.',
+  'calendar.quickPickHint': 'Click the title to pick a month or year quickly.',
   'calendar.minMax': '── With Min/Max Date ──',
   'calendar.restrictedHint': 'Restricted to June 2025.',
   'calendar.outsideRange': 'Dates outside the range are not selectable.',

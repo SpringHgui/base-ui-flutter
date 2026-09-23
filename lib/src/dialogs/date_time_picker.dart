@@ -2,44 +2,81 @@ import 'package:flutter/material.dart';
 
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
-import '../common/numeric_up_down.dart';
+import '../form/time_field.dart';
 import 'month_calendar.dart';
 
 /// The mode of a [DateTimePicker].
 enum DateTimePickerMode { date, time, dateTime }
 
-/// 日期时间选择弹窗内的全部文案。
+/// 日期 / 时间选择器内的全部文案与标题模板。
 ///
 /// 库内默认英文（与 `ComboBox.searchHint` 同一约定）：宿主用自己的语言传一份，
-/// 例如中文宿主传 `DateTimePickerLabels(ok: '确定', cancel: '取消', ...)`。
+/// 例如中文宿主传 `DateTimePickerLabels(ok: '确定', today: '今天', ...)`。
+///
+/// 标题是**模板**而不是格式化函数，好让 `const` 构造仍然成立：`{year}` /
+/// `{month}` / `{monthName}` / `{from}` / `{to}` 会在渲染时被替换，
+/// 于是中文写 `'{year}年{month}月'`、英文写 `'{monthName} {year}'` 都能表达。
 @immutable
 class DateTimePickerLabels {
   const DateTimePickerLabels({
     this.ok = 'OK',
     this.cancel = 'Cancel',
-    this.time = 'Time',
     this.selectTime = 'Select Time',
-    this.hour = 'Hour',
-    this.minute = 'Minute',
-    this.second = 'Second',
-    this.weekdayLabels,
+    this.today = 'Today',
+    this.weekdayLabels = defaultWeekdayLabels,
+    this.monthNames = defaultMonthNames,
+    this.monthTitle = '{monthName} {year}',
+    this.yearTitle = '{year}',
+    this.yearRangeTitle = '{from} - {to}',
   });
 
   final String ok;
   final String cancel;
 
-  /// `dateTime` 模式下时间区的小标题。
-  final String time;
-
-  /// `time` 模式下弹窗顶部的标题。
+  /// 仅时间弹窗的标题。
   final String selectTime;
 
-  final String hour;
-  final String minute;
-  final String second;
+  /// 日历底部「今天: 2026/9/23」的前缀。
+  final String today;
 
-  /// 日历星期表头（周一开头 7 项）；`null` 用 `MonthCalendar` 内置英文。
-  final List<String>? weekdayLabels;
+  /// 星期表头，**周一开头**共 7 项。
+  final List<String> weekdayLabels;
+
+  /// 12 个月名（月份快选视图与日视图标题共用）。
+  final List<String> monthNames;
+
+  /// 日视图顶栏标题模板。
+  final String monthTitle;
+
+  /// 月份快选视图顶栏标题模板。
+  final String yearTitle;
+
+  /// 年份快选视图顶栏标题模板（12 年一档的区间两端）。
+  final String yearRangeTitle;
+
+  /// 把 [template] 里的 `{key}` 换成 [values] 对应值。
+  String fill(String template, Map<String, String> values) {
+    var s = template;
+    for (final e in values.entries) {
+      s = s.replaceAll('{${e.key}}', e.value);
+    }
+    return s;
+  }
+
+  static const List<String> defaultWeekdayLabels = [
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
+  ];
+
+  static const List<String> defaultMonthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
 }
 
 /// 打开日期 / 时间 / 日期时间选择弹窗，返回用户确认的值；取消返回 `null`。
@@ -324,65 +361,36 @@ class _DatePickDialogState extends State<_DatePickDialog> {
   Widget build(BuildContext context) {
     final t = TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
 
-    return Center(
-      child: SizedBox(
-        width: 240,
-        child: Material(
-          color: Colors.transparent,
-          elevation: 0,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: t.controlColor,
-              border: Border.all(color: t.borderColor, width: t.borderWidth),
-              borderRadius: BorderRadius.circular(t.cornerRadius),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(t.compactSpacing * 2),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  MonthCalendar(
-                    selectedDate: _selected,
-                    onDateSelected: (d) => setState(() => _selected = d),
-                    displayMonth: _selected,
-                    minDate: widget.minDate,
-                    maxDate: widget.maxDate,
-                    weekdayLabels: widget.labels.weekdayLabels,
-                    tokens: t,
-                  ),
-                  SizedBox(height: t.compactSpacing * 2),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _DialogButton(
-                        text: widget.labels.ok,
-                        tokens: t,
-                        onPressed: () {
-                          // 只换日期，时间部分沿用初始值
-                          Navigator.of(context).pop(DateTime(
-                            _selected.year,
-                            _selected.month,
-                            _selected.day,
-                            widget.initial.hour,
-                            widget.initial.minute,
-                            widget.initial.second,
-                          ));
-                        },
-                      ),
-                      SizedBox(width: t.compactSpacing),
-                      _DialogButton(
-                        text: widget.labels.cancel,
-                        tokens: t,
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
+    return _PickerShell(
+      width: 264,
+      tokens: t,
+      children: [
+        MonthCalendar(
+          selectedDate: _selected,
+          onDateSelected: (d) => setState(() => _selected = d),
+          displayMonth: _selected,
+          minDate: widget.minDate,
+          maxDate: widget.maxDate,
+          labels: widget.labels,
+          tokens: t,
         ),
-      ),
+        _DialogButtonRow(
+          labels: widget.labels,
+          tokens: t,
+          onOk: () {
+            // 只换日期，时间部分沿用初始值
+            Navigator.of(context).pop(DateTime(
+              _selected.year,
+              _selected.month,
+              _selected.day,
+              widget.initial.hour,
+              widget.initial.minute,
+              widget.initial.second,
+            ));
+          },
+          onCancel: () => Navigator.of(context).pop(),
+        ),
+      ],
     );
   }
 }
@@ -410,151 +418,63 @@ class _DateTimePickDialog extends StatefulWidget {
 
 class _DateTimePickDialogState extends State<_DateTimePickDialog> {
   late DateTime _selectedDate;
-  late double _hour;
-  late double _minute;
-  late double _second;
+  late int _hour;
+  late int _minute;
+  late int _second;
 
   @override
   void initState() {
     super.initState();
     _selectedDate = widget.initial;
-    _hour = widget.initial.hour.toDouble();
-    _minute = widget.initial.minute.toDouble();
-    _second = widget.initial.second.toDouble();
+    _hour = widget.initial.hour;
+    _minute = widget.initial.minute;
+    _second = widget.initial.second;
   }
 
   @override
   Widget build(BuildContext context) {
     final t = TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
-    final labelStyle = TextStyle(
-      fontFamily: t.fontFamily,
-      fontSize: t.fontSize,
-      color: t.foregroundColor,
-    );
 
-    return Center(
-      child: SizedBox(
-        width: 260,
-        child: Material(
-          color: Colors.transparent,
-          elevation: 0,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: t.controlColor,
-              border: Border.all(color: t.borderColor, width: t.borderWidth),
-              borderRadius: BorderRadius.circular(t.cornerRadius),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(t.compactSpacing * 2),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  MonthCalendar(
-                    selectedDate: _selectedDate,
-                    onDateSelected: (d) => setState(() => _selectedDate = d),
-                    displayMonth: _selectedDate,
-                    minDate: widget.minDate,
-                    maxDate: widget.maxDate,
-                    weekdayLabels: widget.labels.weekdayLabels,
-                    tokens: t,
-                  ),
-                  SizedBox(height: t.compactSpacing * 2),
-                  // ── Time section ──
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      widget.labels.time,
-                      style: TextStyle(
-                        fontFamily: t.fontFamily,
-                        fontSize: t.fontSize + 1,
-                        fontWeight: FontWeight.w600,
-                        color: t.foregroundColor,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: t.compactSpacing),
-                  Row(children: [
-                    SizedBox(
-                        width: 50,
-                        child: Text(widget.labels.hour, style: labelStyle)),
-                    Expanded(
-                      child: NumericUpDown(
-                        value: _hour,
-                        min: 0,
-                        max: 23,
-                        step: 1,
-                        decimals: 0,
-                        tokens: t,
-                        onChanged: (v) => setState(() => _hour = v),
-                      ),
-                    ),
-                  ]),
-                  SizedBox(height: t.compactSpacing),
-                  Row(children: [
-                    SizedBox(
-                        width: 50,
-                        child: Text(widget.labels.minute, style: labelStyle)),
-                    Expanded(
-                      child: NumericUpDown(
-                        value: _minute,
-                        min: 0,
-                        max: 59,
-                        step: 1,
-                        decimals: 0,
-                        tokens: t,
-                        onChanged: (v) => setState(() => _minute = v),
-                      ),
-                    ),
-                  ]),
-                  SizedBox(height: t.compactSpacing),
-                  Row(children: [
-                    SizedBox(
-                        width: 50,
-                        child: Text(widget.labels.second, style: labelStyle)),
-                    Expanded(
-                      child: NumericUpDown(
-                        value: _second,
-                        min: 0,
-                        max: 59,
-                        step: 1,
-                        decimals: 0,
-                        tokens: t,
-                        onChanged: (v) => setState(() => _second = v),
-                      ),
-                    ),
-                  ]),
-                  SizedBox(height: t.compactSpacing * 2),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _DialogButton(
-                        text: widget.labels.ok,
-                        tokens: t,
-                        onPressed: () {
-                          Navigator.of(context).pop(DateTime(
-                            _selectedDate.year,
-                            _selectedDate.month,
-                            _selectedDate.day,
-                            _hour.toInt(),
-                            _minute.toInt(),
-                            _second.toInt(),
-                          ));
-                        },
-                      ),
-                      SizedBox(width: t.compactSpacing),
-                      _DialogButton(
-                        text: widget.labels.cancel,
-                        tokens: t,
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
+    return _PickerShell(
+      width: 264,
+      tokens: t,
+      children: [
+        MonthCalendar(
+          selectedDate: _selectedDate,
+          onDateSelected: (d) => setState(() => _selectedDate = d),
+          displayMonth: _selectedDate,
+          minDate: widget.minDate,
+          maxDate: widget.maxDate,
+          labels: widget.labels,
+          tokens: t,
         ),
-      ),
+        SizedBox(height: t.compactSpacing * 2),
+        // 时间区:单行 HH:MM:SS + 右缘上下微调,选中哪段调哪段
+        TimeField(
+          value: DateTime(2000, 1, 1, _hour, _minute, _second),
+          tokens: t,
+          onChanged: (v) => setState(() {
+            _hour = v.hour;
+            _minute = v.minute;
+            _second = v.second;
+          }),
+        ),
+        _DialogButtonRow(
+          labels: widget.labels,
+          tokens: t,
+          onOk: () {
+            Navigator.of(context).pop(DateTime(
+              _selectedDate.year,
+              _selectedDate.month,
+              _selectedDate.day,
+              _hour,
+              _minute,
+              _second,
+            ));
+          },
+          onCancel: () => Navigator.of(context).pop(),
+        ),
+      ],
     );
   }
 }
@@ -577,136 +497,63 @@ class _TimePickDialog extends StatefulWidget {
 }
 
 class _TimePickDialogState extends State<_TimePickDialog> {
-  late double _hour;
-  late double _minute;
-  late double _second;
+  late int _hour;
+  late int _minute;
+  late int _second;
 
   @override
   void initState() {
     super.initState();
-    _hour = widget.initial.hour.toDouble();
-    _minute = widget.initial.minute.toDouble();
-    _second = widget.initial.second.toDouble();
+    _hour = widget.initial.hour;
+    _minute = widget.initial.minute;
+    _second = widget.initial.second;
   }
 
   @override
   Widget build(BuildContext context) {
     final t = TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
-    final labelStyle = TextStyle(
-      fontFamily: t.fontFamily,
-      fontSize: t.fontSize,
-      color: t.foregroundColor,
-    );
 
-    return Center(
-      child: SizedBox(
-        width: 200,
-        child: Material(
-          color: Colors.transparent,
-          elevation: 0,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: t.controlColor,
-              border: Border.all(color: t.borderColor, width: t.borderWidth),
-              borderRadius: BorderRadius.circular(t.cornerRadius),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(t.compactSpacing * 2),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(widget.labels.selectTime,
-                      style: TextStyle(
-                        fontFamily: t.fontFamily,
-                        fontSize: t.fontSize + 1,
-                        fontWeight: FontWeight.w600,
-                        color: t.foregroundColor,
-                      )),
-                  SizedBox(height: t.compactSpacing * 2),
-                  Row(children: [
-                    SizedBox(
-                        width: 50,
-                        child: Text(widget.labels.hour, style: labelStyle)),
-                    Expanded(
-                      child: NumericUpDown(
-                        value: _hour,
-                        min: 0,
-                        max: 23,
-                        step: 1,
-                        decimals: 0,
-                        tokens: t,
-                        onChanged: (v) => setState(() => _hour = v),
-                      ),
-                    ),
-                  ]),
-                  SizedBox(height: t.compactSpacing),
-                  Row(children: [
-                    SizedBox(
-                        width: 50,
-                        child: Text(widget.labels.minute, style: labelStyle)),
-                    Expanded(
-                      child: NumericUpDown(
-                        value: _minute,
-                        min: 0,
-                        max: 59,
-                        step: 1,
-                        decimals: 0,
-                        tokens: t,
-                        onChanged: (v) => setState(() => _minute = v),
-                      ),
-                    ),
-                  ]),
-                  SizedBox(height: t.compactSpacing),
-                  Row(children: [
-                    SizedBox(
-                        width: 50,
-                        child: Text(widget.labels.second, style: labelStyle)),
-                    Expanded(
-                      child: NumericUpDown(
-                        value: _second,
-                        min: 0,
-                        max: 59,
-                        step: 1,
-                        decimals: 0,
-                        tokens: t,
-                        onChanged: (v) => setState(() => _second = v),
-                      ),
-                    ),
-                  ]),
-                  SizedBox(height: t.compactSpacing * 2),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _DialogButton(
-                        text: widget.labels.ok,
-                        tokens: t,
-                        onPressed: () {
-                          // 只换时间，日期部分沿用初始值
-                          Navigator.of(context).pop(DateTime(
-                            widget.initial.year,
-                            widget.initial.month,
-                            widget.initial.day,
-                            _hour.toInt(),
-                            _minute.toInt(),
-                            _second.toInt(),
-                          ));
-                        },
-                      ),
-                      SizedBox(width: t.compactSpacing),
-                      _DialogButton(
-                        text: widget.labels.cancel,
-                        tokens: t,
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+    return _PickerShell(
+      width: 200,
+      tokens: t,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.labels.selectTime,
+          style: TextStyle(
+            fontFamily: t.fontFamily,
+            fontSize: t.fontSize + 1,
+            fontWeight: FontWeight.w600,
+            color: t.foregroundColor,
           ),
         ),
-      ),
+        SizedBox(height: t.compactSpacing * 2),
+        TimeField(
+          value: DateTime(2000, 1, 1, _hour, _minute, _second),
+          tokens: t,
+          onChanged: (v) => setState(() {
+            _hour = v.hour;
+            _minute = v.minute;
+            _second = v.second;
+          }),
+        ),
+        _DialogButtonRow(
+          labels: widget.labels,
+          tokens: t,
+          onOk: () {
+            // 只换时间，日期部分沿用初始值
+            Navigator.of(context).pop(DateTime(
+              widget.initial.year,
+              widget.initial.month,
+              widget.initial.day,
+              _hour,
+              _minute,
+              _second,
+            ));
+          },
+          onCancel: () => Navigator.of(context).pop(),
+        ),
+      ],
     );
   }
 }
@@ -748,6 +595,84 @@ class _DialogButton extends StatelessWidget {
             color: t.foregroundColor,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 三个选择弹窗共用的外壳：居中、定宽、带边框的浮层卡片。
+///
+/// `showDialog` 的 builder 挂在 Overlay 里，脱离 MaterialApp 的 Material 宿主，
+/// 因此这里补一层透明 [Material] 给内部文本 / 输入控件当祖先。
+class _PickerShell extends StatelessWidget {
+  const _PickerShell({
+    required this.width,
+    required this.tokens,
+    required this.children,
+    this.crossAxisAlignment = CrossAxisAlignment.center,
+  });
+
+  final double width;
+  final DesktopTokens tokens;
+  final List<Widget> children;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = tokens;
+    return Center(
+      child: SizedBox(
+        width: width,
+        child: Material(
+          color: Colors.transparent,
+          elevation: 0,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: t.controlColor,
+              border: Border.all(color: t.borderColor, width: t.borderWidth),
+              borderRadius: BorderRadius.circular(t.cornerRadius),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(t.compactSpacing * 2),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: crossAxisAlignment,
+                children: children,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 底部「确定 / 取消」：整组居中，与参考图一致。
+class _DialogButtonRow extends StatelessWidget {
+  const _DialogButtonRow({
+    required this.labels,
+    required this.tokens,
+    required this.onOk,
+    required this.onCancel,
+  });
+
+  final DateTimePickerLabels labels;
+  final DesktopTokens tokens;
+  final VoidCallback onOk;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = tokens;
+    return Padding(
+      padding: EdgeInsets.only(top: t.compactSpacing * 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _DialogButton(text: labels.ok, tokens: t, onPressed: onOk),
+          SizedBox(width: t.compactSpacing * 2),
+          _DialogButton(text: labels.cancel, tokens: t, onPressed: onCancel),
+        ],
       ),
     );
   }

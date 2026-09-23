@@ -86,6 +86,56 @@ void main() {
     expect(scrollbarThickness(tester), 4);
   });
 
+  testWidgets('纵向条挂在横向滚动区之外:按轴过滤通知后仍能绘制(嵌套 depth 回归)',
+      (tester) async {
+    // 宽表网格的标准摆法:纵向条包住横向 SingleChildScrollView,
+    // 内层纵向 ListView 的通知冒泡经过横向 Scrollable 时 depth 变为 1,
+    // Material 默认的 depth==0 过滤会全部拒收 → 纵向条拿不到尺寸、整条消失。
+    final v = ScrollController();
+    final h = ScrollController();
+    addTearDown(v.dispose);
+    addTearDown(h.dispose);
+    await tester.pumpWidget(host(SizedBox(
+      width: 200,
+      height: 200,
+      child: ScrollBar(
+        controller: v,
+        thumbVisibility: true,
+        notificationPredicate: (n) => n.metrics.axis == Axis.vertical,
+        child: SingleChildScrollView(
+          controller: h,
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: 1000,
+            child: ListView.builder(
+              controller: v,
+              itemExtent: 40,
+              itemCount: 50,
+              itemBuilder: (_, i) => const SizedBox(height: 40),
+            ),
+          ),
+        ),
+      ),
+    )));
+    v.jumpTo(80);
+    await tester.pumpAndSettle();
+
+    final bar = find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.foregroundPainter is ScrollbarPainter);
+    expect(bar, findsOneWidget);
+    // 通知被过滤掉时 ScrollbarPainter.paint 直接 early-return,
+    // 右缘不会出现任何轨道 / 滑块矩形(200px 宽的宿主,条贴 195..200)。
+    expect(
+      bar,
+      paints
+        ..something((method, args) {
+          if (method != #drawRect) return false;
+          final r = args.first as Rect;
+          return r.right >= 199.0 && r.width <= 5.5;
+        }),
+    );
+  });
+
   test('scrollbarHoverThickness:悬浮/拖动为宽、静止为窄', () {
     final p = scrollbarHoverThickness();
     expect(p.resolve(const {}), kScrollBarSlimThickness);

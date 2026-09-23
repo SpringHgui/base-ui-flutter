@@ -94,6 +94,7 @@ export 'src/containers/carousel.dart';
 // ── Menus & Toolbars ────────────────────────────────────────────────────────
 export 'src/menus/menu_strip.dart';
 export 'src/menus/context_menu_strip.dart';
+export 'src/menus/text_box_context_menu.dart';
 export 'src/menus/tool_strip.dart';
 export 'src/menus/toolbar_button.dart';
 export 'src/menus/status_strip.dart';
@@ -112,6 +113,7 @@ export 'src/overlay/check_row.dart';
 // ── Form controls ────────────────────────────────────────────────────────────
 export 'src/form/search_bar.dart';
 export 'src/form/inline_editor.dart';
+export 'src/form/time_field.dart';
 
 // ── Dialogs ─────────────────────────────────────────────────────────────────
 export 'src/dialogs/dialog_box.dart';

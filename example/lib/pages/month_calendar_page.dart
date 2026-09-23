@@ -42,6 +42,7 @@ class _MonthCalendarPageState extends State<MonthCalendarPage> {
                   const SizedBox(height: 8),
                   Label(l10n.t('calendar.navigateHint')),
                   Label(l10n.t('calendar.clickHint')),
+                  Label(l10n.t('calendar.quickPickHint')),
                 ],
               ),
             ],

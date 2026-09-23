@@ -357,6 +357,7 @@ const Map<String, String> jaTranslations = {
   'calendar.selectedDate': '選択日:',
   'calendar.navigateHint': '矢印で月を切り替えます。',
   'calendar.clickHint': '日付をクリックして選択します。',
+  'calendar.quickPickHint': 'タイトルをクリックすると月 / 年を素早く選べます。',
   'calendar.minMax': '── 最小/最大日付 ──',
   'calendar.restrictedHint': '2025 年 6 月に制限されています。',
   'calendar.outsideRange': '範囲外の日付は選択できません。',
