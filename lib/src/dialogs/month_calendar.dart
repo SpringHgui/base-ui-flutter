@@ -19,6 +19,7 @@ class MonthCalendar extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.enabled = true,
+    this.weekdayLabels,
   });
 
   /// The currently selected date, or `null`.
@@ -47,6 +48,10 @@ class MonthCalendar extends StatefulWidget {
 
   /// Whether the calendar is interactive.
   final bool enabled;
+
+  /// 星期表头文案，**周一开头**共 7 项；`null` 用内置英文缩写。
+  /// 网格顺序固定为周一到周日，本参数只换字面，宿主传自己的语言。
+  final List<String>? weekdayLabels;
 
   @override
   State<MonthCalendar> createState() => _MonthCalendarState();
@@ -157,7 +162,7 @@ class _MonthCalendarState extends State<MonthCalendar> {
               SizedBox(height: t.compactSpacing),
               // Weekday headers
               Row(
-                children: _weekdays
+                children: (widget.weekdayLabels ?? _weekdays)
                     .map((d) => Expanded(
                           child: Center(
                             child: Text(d,

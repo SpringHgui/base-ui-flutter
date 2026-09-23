@@ -21,6 +21,7 @@ class DataGridViewColumn {
     this.alignment = Alignment.centerLeft,
     this.subtitle,
     this.subtitleGlyph,
+    this.subtitleIcon,
   });
 
   /// Header text.
@@ -30,7 +31,12 @@ class DataGridViewColumn {
   final String? subtitle;
 
   /// Short glyph drawn before [subtitle] (e.g. "#" or "abc").
+  /// Ignored when [subtitleIcon] is set.
   final String? subtitleGlyph;
+
+  /// Icon drawn before [subtitle], taking the same slot as [subtitleGlyph]
+  /// (e.g. a clock for date/time columns).
+  final IconData? subtitleIcon;
 
   /// Fixed width in logical pixels. When set, [flex] is ignored.
   final double? width;
@@ -38,7 +44,9 @@ class DataGridViewColumn {
   /// Flex factor for proportional sizing.
   final int flex;
 
-  /// Cell content alignment.
+  /// Cell content alignment (both axes: e.g. [Alignment.centerRight] for
+  /// numeric columns). Ignored while the cell is being edited, where the
+  /// editor always fills the cell.
   final Alignment alignment;
 }
 
@@ -192,6 +200,10 @@ class DataGridView extends StatefulWidget {
   /// Called when a cell is single-clicked (left-button pointer-down, zero
   /// latency). Distinct from [onCellSelected] so callers can attach an
   /// "enter edit" action without conflating it with mere selection.
+  ///
+  /// 传入 [onCellsSelected]（框选模式）时改在**抬起且未发生拖拽**时触发：
+  /// 按下只更新选中集合，因此宿主可放心在此回调里进入就地编辑，
+  /// 不会被随后的框选手势抢先。
   final void Function(int row, int col)? onCellTap;
 
   /// Called when a cell is double-clicked.
@@ -400,10 +412,16 @@ class _DataGridViewState extends State<DataGridView> {
         },
         onPointerUp: (event) {
           final wasDragging = _isDragging;
+          final start = _dragStartCell;
           _dragStartCell = null;
           _dragCurrentCell = null;
           _isDragging = false;
           _stopAutoScroll();
+          // 多选模式下单元格的 onCellTap 由这里补发:按下只完成选中,
+          // 抬起且未拖拽才认定是单击(宿主据此进入就地编辑),框选不算点击
+          if (!wasDragging && start != null) {
+            widget.onCellTap?.call(start.$1, start.$2);
+          }
           // 拖拽中重建的行缓存了 isDragging=true,结束时必须再重建,
           // 否则单元格 onPointerDown 会被过期的 isDragging 拦截(无法单选)
           if (wasDragging) setState(() {});
@@ -445,7 +463,12 @@ class _DataGridViewState extends State<DataGridView> {
     // 0 行(仅表头)时数据区没有可命中的行,避免算出 -1 这类越界行号
     if (widget.rowCount <= 0) return null;
     if (localY < 0) return null;
-    final row = localY ~/ rh;
+    // 跟踪指针的 Listener 在 ListView 之上,localY 是视口坐标,
+    // 必须补上纵向滚动偏移才是绝对行号
+    final controller = widget.verticalScrollController;
+    final scrolled =
+        (controller != null && controller.hasClients) ? controller.offset : 0.0;
+    final row = (scrolled + localY) ~/ rh;
     if (row >= widget.rowCount) return widget.rowCount - 1;
     return row;
   }
@@ -549,7 +572,10 @@ class _DataGridViewState extends State<DataGridView> {
   double _headerHeight(DesktopTokens t) {
     final base = widget.rowHeight ?? t.controlHeight;
     final twoLine = widget.columns
-        .any((c) => c.subtitle != null || c.subtitleGlyph != null);
+        .any((c) =>
+            c.subtitle != null ||
+            c.subtitleGlyph != null ||
+            c.subtitleIcon != null);
     return twoLine ? base + 14 : base;
   }
 
@@ -606,8 +632,12 @@ class _DataGridViewState extends State<DataGridView> {
         : (widget.sortColumn == columnIndex ? widget.sortAscending : null);
 
     final twoLine = widget.columns
-        .any((c) => c.subtitle != null || c.subtitleGlyph != null);
-    final hasSubtitle = col.subtitle != null || col.subtitleGlyph != null;
+        .any((c) =>
+            c.subtitle != null ||
+            c.subtitleGlyph != null ||
+            c.subtitleIcon != null);
+    final hasSubtitle =
+        col.subtitle != null || col.subtitleGlyph != null || col.subtitleIcon != null;
 
     final titleRow = Row(
       children: [
@@ -652,7 +682,16 @@ class _DataGridViewState extends State<DataGridView> {
             child: hasSubtitle
                 ? Row(
                     children: [
-                      if (col.subtitleGlyph != null)
+                      if (col.subtitleIcon != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 3),
+                          child: Icon(
+                            col.subtitleIcon,
+                            size: 11,
+                            color: t.accentColor,
+                          ),
+                        )
+                      else if (col.subtitleGlyph != null)
                         Padding(
                           padding: const EdgeInsets.only(right: 3),
                           child: Text(
@@ -1056,7 +1095,7 @@ class _DataGridRowState extends State<_DataGridRow> {
             ? w.selectedTextColor
             : (w.enabled ? w.t.foregroundColor : w.t.disabledForegroundColor));
 
-    Widget cell = Listener(
+    final Widget cell = Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: w.enabled
           ? (event) {
@@ -1123,20 +1162,22 @@ class _DataGridRowState extends State<_DataGridRow> {
                   style: TextStyle(color: fg),
                   child: w.cellBuilder(w.row, col),
                 )
-              : Padding(
-                  padding: EdgeInsets.symmetric(horizontal: w.cellPaddingX),
-                  child: DefaultTextStyle.merge(
-                    style: TextStyle(color: fg),
-                    child: w.cellBuilder(w.row, col),
+              : Align(
+                  // 对齐放在装饰容器**内部**:外层 Align 会按内容宽收缩,
+                  // 竖向网格线与选中底色就会跟着文字宽度走而不是列缘
+                  alignment: column.alignment,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: w.cellPaddingX),
+                    child: DefaultTextStyle.merge(
+                      style: TextStyle(color: fg),
+                      child: w.cellBuilder(w.row, col),
+                    ),
                   ),
                 ),
         ),
       ),
     );
 
-    if (column.alignment != Alignment.centerLeft) {
-      cell = Align(alignment: column.alignment, child: cell);
-    }
     final widths = w.columnWidths;
     final cw = widths != null ? widths[col] : column.width;
     if (cw != null) {

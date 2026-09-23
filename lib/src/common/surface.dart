@@ -156,8 +156,9 @@ class _SurfaceState extends State<Surface> {
             canRequestFocus: _interactive,
             onFocusChange: _handleFocus,
             onKeyEvent: _handleKey,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 120),
+            // 不做颜色渐变：未选中态底色是 transparent(0x00000000)，向浅灰插值时
+            // 通道会先经过半透明深灰，hover 会"先黑一下再变浅"。
+            child: Container(
               margin: widget.margin,
               padding: widget.padding,
               constraints: widget.constraints,

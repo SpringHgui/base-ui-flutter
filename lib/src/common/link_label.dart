@@ -16,6 +16,7 @@ class LinkLabel extends StatelessWidget {
     this.textAlign = TextAlign.left,
     this.maxLines,
     this.overflow = TextOverflow.clip,
+    this.underline = true,
   });
 
   /// The link text.
@@ -39,6 +40,10 @@ class LinkLabel extends StatelessWidget {
   /// Visual overflow behaviour.
   final TextOverflow overflow;
 
+  /// Whether to draw the underline. Desktop detail panes often want a
+  /// link-coloured label without the underline, so it can be turned off.
+  final bool underline;
+
   @override
   Widget build(BuildContext context) {
     final t = tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
@@ -59,7 +64,8 @@ class LinkLabel extends StatelessWidget {
             fontFamily: t.fontFamily,
             fontSize: t.fontSize,
             color: linkColor,
-            decoration: TextDecoration.underline,
+            decoration:
+                underline ? TextDecoration.underline : TextDecoration.none,
             decorationColor: linkColor,
             height: 1.0,
           ),

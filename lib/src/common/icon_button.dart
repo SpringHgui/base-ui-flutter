@@ -7,8 +7,10 @@ import '../foundation/token_scope.dart';
 /// A lightweight icon-only button for toolbars / title bars.
 ///
 /// Rendered as a borderless button with an icon (or arbitrary [child]);
-/// hover gets the ghost overlay tint, [selected] gets the accent tint plus
-/// an optional [outline] border. All colors come from [DesktopTokens].
+/// hover gets the ghost overlay tint, [selected] gets a light accent-tinted
+/// background plus an optional [outline] border. The glyph itself never
+/// changes colour with state — all states stay readable on the light tint.
+/// All colors come from [DesktopTokens].
 /// No Material ripple, no click animation (desktop fast-paced interaction).
 class IconBtn extends StatefulWidget {
   const IconBtn({
@@ -51,12 +53,13 @@ class IconBtn extends StatefulWidget {
   /// Optional hover tooltip.
   final String? tooltip;
 
-  /// Whether the button is in the selected / active state: the icon (or
-  /// [selectedColor]) switches to the accent color and a faint accent
-  /// background is shown.
+  /// Whether the button is in the selected / active state: a faint accent
+  /// background is shown. The glyph keeps its [color] — state is carried by
+  /// the background, never by repainting the icon.
   final bool selected;
 
-  /// Color used for the selected state; defaults to the token primary color.
+  /// Accent color used for the selected background tint (and [outline] border);
+  /// defaults to the token primary color.
   final Color? selectedColor;
 
   /// When `true` a hairline border is drawn (accent-tinted while selected).
@@ -101,9 +104,7 @@ class _IconBtnState extends State<IconBtn> {
     final enabled = widget.onTap != null;
     final accent = widget.selectedColor ?? t.primaryColor;
 
-    final iconColor = widget.selected
-        ? accent
-        : (widget.color ?? t.mutedForegroundColor);
+    final iconColor = widget.color ?? t.mutedForegroundColor;
 
     // 背景:selected 显示 accent 淡底(hover 加深、pressed 再加深);
     // 未选中 hover / pressed 显示 overlay 灰底
@@ -111,7 +112,7 @@ class _IconBtnState extends State<IconBtn> {
     if (widget.selected) {
       final alpha = _pressed && enabled
           ? 0.28
-          : (_hover && enabled ? 0.20 : 0.12);
+          : (_hover && enabled ? 0.22 : 0.16);
       bg = Color.alphaBlend(accent.withValues(alpha: alpha), t.controlColor);
     } else if (_hover || _pressed) {
       final overlay = _pressed && enabled

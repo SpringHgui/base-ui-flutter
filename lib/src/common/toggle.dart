@@ -11,6 +11,11 @@ enum ToggleVariant {
 
   /// Bordered (hairline border on all states).
   outline,
+
+  /// Borderless like [default_], but the selected state uses the light accent
+  /// tint instead of a solid accent fill — for toggles whose child carries its
+  /// own colours (icon + label) that a solid fill would swallow.
+  ghost,
 }
 
 /// Size presets of [Toggle] (relative to [DesktopTokens.controlHeight]).
@@ -73,15 +78,18 @@ class _ToggleState extends State<Toggle> {
     };
 
     final isOutline = widget.variant == ToggleVariant.outline;
-    // outline:选中态用淡蓝染色 + 强调描边，而不是实心蓝——
+    final isGhost = widget.variant == ToggleVariant.ghost;
+    // outline / ghost:选中态用淡蓝染色 + 强调描边(outline 才有描边)，而不是实心蓝——
     // 保持前景仍是主文字色，图标里的蓝色线稿不会被底色吞掉
     final Color baseFill = !widget.selected
         ? Colors.transparent
-        : (isOutline
+        : (isOutline || isGhost
             ? Color.alphaBlend(
                 t.accentColor.withValues(alpha: 0.16), t.controlColor)
             : t.accentColor);
-    final Color? hoverFill = widget.selected ? null : t.mutedColor;
+    // 悬浮用控件悬浮面而不是 mutedColor：后者是行号槽那类近白底色，
+    // 悬停在白底工具条上几乎看不出来
+    final Color? hoverFill = widget.selected ? null : t.controlHoverColor;
 
     return Surface(
       tokens: t,
@@ -105,7 +113,7 @@ class _ToggleState extends State<Toggle> {
           fontFamily: t.fontFamily,
           fontSize: t.fontSize * 0.875,
           fontWeight: FontWeight.w500,
-          color: widget.selected && !isOutline
+          color: widget.selected && !isOutline && !isGhost
               ? t.accentForegroundColor
               : t.foregroundColor,
           height: 1.2,

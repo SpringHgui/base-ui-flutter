@@ -44,6 +44,8 @@ class TreeView<T> extends StatefulWidget {
     this.enabled = true,
     this.nodeToString,
     this.indent = 16.0,
+    this.rowBuilder,
+    this.framed = true,
   });
 
   /// Root-level nodes.
@@ -76,9 +78,62 @@ class TreeView<T> extends StatefulWidget {
   /// Indentation per level in logical pixels.
   final double indent;
 
+  /// Optional custom row renderer.
+  ///
+  /// When set, it owns the entire row content (icon, label, suffix, …) and is
+  /// given the depth / selection / expand state through [TreeRowContext].
+  /// The row box (height, indent, hit testing) still comes from [TreeView].
+  ///
+  /// A custom row also owns the **selection background**: the tree stops
+  /// painting its solid primary fill, since a host that draws its own row
+  /// (icon + secondary text) usually wants a tint + border instead.
+  final TreeRowBuilder<T>? rowBuilder;
+
+  /// Whether to paint the surrounding border and background.
+  ///
+  /// `false` lets the tree blend into a host panel that already frames it.
+  final bool framed;
+
   @override
   State<TreeView<T>> createState() => _TreeViewState<T>();
 }
+
+/// Per-row state handed to [TreeView.rowBuilder].
+class TreeRowContext<T> {
+  const TreeRowContext({
+    required this.node,
+    required this.depth,
+    required this.selected,
+    required this.expanded,
+    required this.hasChildren,
+    required this.tokens,
+    required this.toggleExpand,
+  });
+
+  /// The node being rendered.
+  final TreeNode<T> node;
+
+  /// 0-based nesting level; multiply by `TreeView.indent` to align children.
+  final int depth;
+
+  /// Whether this row is the selected one.
+  final bool selected;
+
+  /// Whether this node is currently expanded.
+  final bool expanded;
+
+  /// Whether the node has children (i.e. needs an expand affordance).
+  final bool hasChildren;
+
+  /// Design tokens, already resolved by the tree — use them instead of literals.
+  final DesktopTokens tokens;
+
+  /// Flips the node's expanded state and reports it through `onNodeExpanded`.
+  final VoidCallback toggleExpand;
+}
+
+/// Renders one tree row.
+typedef TreeRowBuilder<T> = Widget Function(TreeRowContext<T> context);
 
 class _TreeViewState<T> extends State<TreeView<T>> {
   late final FocusNode _focusNode;
@@ -133,25 +188,29 @@ class _TreeViewState<T> extends State<TreeView<T>> {
 
     visit(widget.nodes, 0);
 
+    final tree = ListView.builder(
+      itemExtent: t.controlHeight,
+      padding: EdgeInsets.zero,
+      itemCount: flat.length,
+      itemBuilder: (context, index) {
+        final (node, depth) = flat[index];
+        return _buildNodeRow(node, depth, t);
+      },
+    );
+
     return Focus(
       focusNode: _focusNode,
       autofocus: widget.autofocus,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: widget.enabled ? t.surfaceColor : t.controlDisabledColor,
-          border: Border.all(color: t.borderColor, width: t.borderWidth),
-          borderRadius: BorderRadius.circular(t.cornerRadius),
-        ),
-        child: ListView.builder(
-          itemExtent: t.controlHeight,
-          padding: EdgeInsets.zero,
-          itemCount: flat.length,
-          itemBuilder: (context, index) {
-            final (node, depth) = flat[index];
-            return _buildNodeRow(node, depth, t);
-          },
-        ),
-      ),
+      child: !widget.framed
+          ? tree
+          : DecoratedBox(
+              decoration: BoxDecoration(
+                color: widget.enabled ? t.surfaceColor : t.controlDisabledColor,
+                border: Border.all(color: t.borderColor, width: t.borderWidth),
+                borderRadius: BorderRadius.circular(t.cornerRadius),
+              ),
+              child: tree,
+            ),
     );
   }
 
@@ -166,44 +225,55 @@ class _TreeViewState<T> extends State<TreeView<T>> {
       child: Container(
         height: t.controlHeight,
         padding: EdgeInsets.only(left: depth * widget.indent),
-        color: isSelected ? t.primaryColor : Colors.transparent,
-        child: Row(
-          children: [
-            if (node.hasChildren)
-              GestureDetector(
-                onTap: () => _toggleExpand(node),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: t.compactSpacing),
-                  child: Icon(
-                    node.expanded
-                        ? Icons.arrow_drop_down
-                        : Icons.arrow_right,
-                    size: t.fontSize + 4,
-                    color: isSelected ? t.surfaceColor : t.foregroundColor,
-                  ),
-                ),
-              )
-            else
-              SizedBox(width: t.fontSize + 4 + t.compactSpacing * 2),
-            Expanded(
-              child: Text(
-                _nodeLabel(node),
-                style: TextStyle(
-                  fontFamily: t.fontFamily,
-                  fontSize: t.fontSize,
-                  color: isSelected
-                      ? t.surfaceColor
-                      : (widget.enabled
-                          ? t.foregroundColor
-                          : t.disabledForegroundColor),
-                  height: 1.0,
-                ),
-                overflow: TextOverflow.ellipsis,
+        color: isSelected && widget.rowBuilder == null
+            ? t.primaryColor
+            : Colors.transparent,
+        child: widget.rowBuilder?.call(TreeRowContext(
+              node: node,
+              depth: depth,
+              selected: isSelected,
+              expanded: node.expanded,
+              hasChildren: node.hasChildren,
+              tokens: t,
+              toggleExpand: () => _toggleExpand(node),
+            )) ??
+            _defaultRowContent(node, t, isSelected),
+      ),
+    );
+  }
+
+  Widget _defaultRowContent(TreeNode<T> node, DesktopTokens t, bool isSelected) {
+    return Row(
+      children: [
+        if (node.hasChildren)
+          GestureDetector(
+            onTap: () => _toggleExpand(node),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: t.compactSpacing),
+              child: Icon(
+                node.expanded ? Icons.arrow_drop_down : Icons.arrow_right,
+                size: t.fontSize + 4,
+                color: isSelected ? t.surfaceColor : t.foregroundColor,
               ),
             ),
-          ],
+          )
+        else
+          SizedBox(width: t.fontSize + 4 + t.compactSpacing * 2),
+        Expanded(
+          child: Text(
+            _nodeLabel(node),
+            style: TextStyle(
+              fontFamily: t.fontFamily,
+              fontSize: t.fontSize,
+              color: isSelected
+                  ? t.surfaceColor
+                  : (widget.enabled ? t.foregroundColor : t.disabledForegroundColor),
+              height: 1.0,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-      ),
+      ],
     );
   }
 }

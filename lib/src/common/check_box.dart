@@ -73,10 +73,19 @@ class CheckBox extends StatelessWidget {
     final t = tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
     final interactive = enabled && onChanged != null;
 
-    // 传统 WinForms 勾选框:小尺寸、无填充色,仅边框 + 勾号
+    // 实心勾选框:选中态为强调色底 + 白色勾号,未选中保持描边空框
     final boxSize = t.controlHeight * 0.5;
-    final boxBorderColor =
-        enabled ? t.foregroundColor : t.disabledForegroundColor;
+    final fillColor = !enabled
+        ? t.controlDisabledColor
+        : value
+            ? t.primaryColor
+            : Colors.transparent;
+    final boxBorderColor = !enabled
+        ? t.disabledForegroundColor
+        : value
+            ? t.primaryColor
+            : t.foregroundColor;
+    final checkColor = enabled ? t.accentForegroundColor : t.disabledForegroundColor;
 
     final indicator = GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -86,15 +95,15 @@ class CheckBox extends StatelessWidget {
         height: boxSize,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.transparent,
+          color: fillColor,
           border: Border.all(color: boxBorderColor, width: t.borderWidth),
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BorderRadius.circular(3),
         ),
         child: value
             ? Icon(
                 Icons.check,
                 size: boxSize * 0.8,
-                color: t.foregroundColor,
+                color: checkColor,
               )
             : null,
       ),

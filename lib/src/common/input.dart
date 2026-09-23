@@ -24,6 +24,8 @@ class Input extends StatefulWidget {
     this.selectAllOnFocus,
     this.contentPadding,
     this.textAlign,
+    this.height,
+    this.trailing,
   });
 
   /// Controls the text being edited.
@@ -78,6 +80,14 @@ class Input extends StatefulWidget {
   /// Text alignment of the field content (e.g. center for a page-number box).
   /// When null, defaults to [TextAlign.start].
   final TextAlign? textAlign;
+
+  /// 控件高度。当 null 时取 [DesktopTokens.controlHeight]。
+  /// 供紧凑场景使用（如表格单元格内的行内编辑器），内部垂直留白按此高度推导。
+  final double? height;
+
+  /// 渲染在边框内右缘的附加控件（如「…」浏览按钮、日历按钮）。
+  /// 与 [obscureToggle] 的眼睛按钮可共存：眼睛在前、trailing 在最右。
+  final Widget? trailing;
 
   @override
   State<Input> createState() => _InputState();
@@ -141,20 +151,22 @@ class _InputState extends State<Input> {
     final fillColor = widget.enabled ? t.surfaceColor : t.controlDisabledColor;
 
     final showToggle = widget.obscureText && widget.obscureToggle;
+    final trailing = widget.trailing;
 
     return SizedBox(
-      height: t.controlHeight,
+      height: widget.height ?? t.controlHeight,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: fillColor,
           border: Border.all(color: borderColor, width: t.borderWidth),
           borderRadius: BorderRadius.circular(t.cornerRadius),
         ),
-        child: showToggle
+        child: (showToggle || trailing != null)
             ? Row(
                 children: [
                   Expanded(child: _textField(t)),
-                  _obscureToggle(t),
+                  if (showToggle) _obscureToggle(t),
+                  if (trailing != null) trailing,
                 ],
               )
             : _textField(t),
@@ -167,7 +179,9 @@ class _InputState extends State<Input> {
     // isDense 会让 InputDecorator 容器塌缩到行高并贴顶,导致 textAlignVertical
     // 失效。这里用精确的垂直 padding 把内容区垫到与控件等高,文字即垂直居中
     // (style height:1.0 时行高恰好等于 fontSize)。
-    final double padV = (t.controlHeight - t.fontSize) / 2;
+    final boxHeight = widget.height ?? t.controlHeight;
+    final padV = ((boxHeight - t.fontSize) / 2).clamp(0.0, double.infinity);
+    final customPadding = widget.contentPadding;
     return TextField(
       controller: _controller,
       focusNode: _focusNode,
@@ -202,11 +216,14 @@ class _InputState extends State<Input> {
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
         disabledBorder: InputBorder.none,
-        contentPadding: widget.contentPadding ??
-            EdgeInsets.symmetric(
-              horizontal: t.controlPaddingX,
-              vertical: padV < 0 ? 0 : padV,
-            ),
+        contentPadding: customPadding == null
+            ? EdgeInsets.symmetric(
+                horizontal: t.controlPaddingX,
+                vertical: padV,
+              )
+            : (widget.height == null
+                ? customPadding
+                : customPadding.add(EdgeInsets.symmetric(vertical: padV))),
       ),
     );
   }

@@ -1,5 +1,26 @@
 ## Unreleased
 
+* `DataGridView`（lists）**单元格内容改为在列内居中**：`column.alignment` 此前是把整格包一层 `Align`，右对齐列的容器会按文字宽度收缩——竖向网格线和选中底色跟着文字走而不是贴着列缘；且默认 `centerLeft` 分支根本不包，文字被拉成整行高并**贴着行顶**（行高一密就明显看出没居中）。现在对齐落在装饰容器**内部**的 `Align` 上，容器恒占满列宽，两个轴都由 `column.alignment` 说话（数值列传 `Alignment.centerRight`）。编辑态不受影响（编辑器仍撑满整格）。回归测试见 `test/data_grid_cell_alignment_test.dart`（左/右对齐的文字中线与单元格中线重合、右对齐列容器仍等于列宽）。
+
+* `Input`（common）新增 `height`：控件高度，缺省仍取 `controlHeight`(28)。表格行做密集后（22px）行内编辑器会撑破行——原先 `Input` 把高度写死成令牌值，宿主无法压低；现在内部垂直留白按此高度推导（`contentPadding` 为自定义值时只追加垂直分量，横向仍归宿主）。`InlineEditor`（form）随之将自身 `height` 透传给 `Input`，并新增 `textAlign`：数值列右对齐时编辑态与显示态同向，Enter 进编辑文字不跳位。
+
+* `CheckBox`（common）勾选态改为**实心**：选中 = `primaryColor` 填充 + `accentForegroundColor` 白色勾号 + 3px 圆角，未选中仍是描边空框，禁用勾选为 `controlDisabledColor` 底 + 禁用勾号。原「透明底 + 边框 + 前景色勾号」的传统 WinForms 画法在密集列表（字段勾选、导入候选）里视觉重量太低，扫读时不易分辨勾没勾。配套：`CheckedListBox`（lists）此前违规直接使用 Material `Checkbox` 自绘实心样式，现改为复用本组件（`onChanged` 置空 = 被动指示器，点击仍由整行 `onTap` 结算，无双切换手），全库勾选框收敛为一种画法。
+
+* `TreeView`（lists）新增 `rowBuilder` 与 `framed`：前者让宿主接管**行内容**（图标 / 次级灰字后缀 / 徽标这类内置「一行一个标签」画不出来的行），行盒的高度、缩进、命中区仍由组件负责，宿主通过 `TreeRowContext` 拿到 `depth` / `selected` / `expanded` / `hasChildren` / `tokens` 和 `toggleExpand`；提供 `rowBuilder` 时组件**不再绘制实心强调色选中底**（自带图标与次级文字的行通常要的是浅色染色 + 描边，实心蓝会把图标吞掉），不传时行为与旧版逐像素一致。`framed: false` 去掉外框与底色，供宿主面板自身已经有边框 / 内边距时使用（原先这类场景只能把边框留在那里叠成双线）。典型用法见 daro 的 PostgreSQL 依赖页（「使用 / 被使用」：`schema.name` + 灰色 `KIND (DEGREE)` + 外键下挂内部触发器子项）。
+
+* 日期时间选择弹窗改为**可独立复用的入口**：新增顶层 `showDateTimePickerDialog(context, {mode, value, minDate, maxDate, labels})`，返回确认后的 `DateTime?`（取消为 `null`）。`DateTimePicker` 自身的三种模式全部改走该入口，三个私有弹窗从「外部可变闭包 + 回调」改为 `Navigator.pop(结果)`，宿主想在自己的字段右缘挂一个「…」选择按钮时可直接调用，不必复制弹窗结构。合并规则不变：`date` 只换日期保留时间、`time` 只换时间保留日期。
+  配套：① 新增 `DateTimePickerLabels`（`ok` / `cancel` / `time` / `selectTime` / `hour` / `minute` / `second` / `weekdayLabels`），库内默认英文，宿主按 `ComboBox.searchHint` 的同一约定传自己语言的文案；`DateTimePicker` 新增 `labels` 字段。② `MonthCalendar` 新增 `weekdayLabels`（周一开头 7 项，`null` 用内置 `Mo…Su`）——星期表头原先写死在 State 里，中文宿主无法本地化。③ 修 `time` 模式**丢失已有秒数**：`_TimePickDialog` 的秒固定从 `0` 起算（只取了 `TimeOfDay` 的时/分），确认后把原值的秒清掉了；现在初值直接收 `DateTime`，秒沿用。另导出 `formatDateTimeByMode(dt, mode)` 与 `parseDateTimeField(text)`（接受 `2022-12-12 20:13:06` 这类带空格、`DateTime.tryParse` 不认的库内格式），供宿主做「文本 ↔ 值」往返。裸时间 `20:13:06` 也认（锚到今天，只为取回时分秒），否则 `time` 列一打开就掉到当前时刻。
+  另修一处实测缺陷：**日历原先永远开在当前月**——`_DatePickDialog` / `_DateTimePickDialog` 只传 `selectedDate` 不传 `displayMonth`，`MonthCalendar` 于是回落到 `DateTime.now()`；编辑一个 2022 年的值，弹层显示的是当前月，选中日既看不见也点不到，随手点「确定」还把年份改掉了。两处现在都传 `displayMonth: 选中值`。回归测试见 `test/inline_editor_date_picker_test.dart`。
+
+* `Input` 新增 `trailing`（common）：渲染在**边框内右缘**的附加控件（「…」浏览、日历按钮这类字段内动作），与密码 `obscureToggle` 的眼睛可共存（眼睛在前、trailing 最右）；两者都为空时渲染结构与旧版完全一致。
+  `InlineEditor`（form）据此新增 `datePickerMode` / `datePickerLabels`：传入模式即在字段右缘挂一个日历（`date` / `dateTime`）或时钟（`time`）按钮，点击弹出 `showDateTimePickerDialog`，确认后按该模式的默认格式写回文本（`yyyy-MM-dd` / `HH:mm:ss` / 两者），`onChanged` 照常触发，Enter / 失焦提交与 Esc 取消语义不变。**关键守卫**：弹窗会抢走焦点，原先「失焦即提交」会在打开弹窗那一刻带着旧文本结算掉编辑器，故新增 `_picking` 标记，选值期间的失焦不算离开编辑器，弹窗关闭后把焦点还给输入框。
+
+* `LinkLabel`（common）新增 `underline`（默认 `true`，行为与旧版一致）：可关掉下划线，只保留链接色。桌面详情面板（如 Navicat 的库 / 表信息页）把「共享」这类动作渲染成**蓝色文字但无下划线**，硬编码的下划线会让它和同排的普通文字抢视觉重量。取色与禁用态不变（`primaryColor` / `disabledForegroundColor`），hover 手型也保留——去掉下划线不改变它是可点的。
+
+* `Surface`（common）**去掉 hover / pressed 的 120ms 颜色渐变**（`AnimatedContainer` → `Container`）。未选中态底色是 `transparent`（即 `0x00000000`，RGB 通道为 0），向浅灰插值时**通道会先经过半透明的深灰**——鼠标进入一个无边框 / 透明底的可交互面（`Toggle`、菜单行、列表行）会看到「先黑一下、再变浅」的两段跳色，而不是直接落到悬浮色。顺带符合本库的快节奏约定：悬浮反馈无动画（WinForms 语义）。所有以透明为常态底色的组件同时受益，无需各自绕路。
+
+* `Toggle`（common）新增 `ToggleVariant.ghost`：与 `default_` 一样无边框，但选中态取 `outline` 的**淡强调色染色**（`accentColor` 16% 压在 `controlColor` 上）而非实心强调底，前景保持主文字色——供「图标 + 文字」这类自带颜色的开关使用，实心蓝会把图标线稿的蓝色强调吞掉。多个 `ghost` 开关紧邻排列即为工具条分段样式。未选中态的**悬浮底色同时从 `mutedColor` 改为 `controlHoverColor`**（winForm 预设 `#E1E1E1`）：`mutedColor`(`#F4F4F4`) 是行号槽那类近白底色，悬停在纸白工具条上几乎看不出来。回归测试见 `test/modern_components_test.dart`（hover 一帧内落定悬浮色 / ghost 选中染色且无边框）。
+
 * `ComboBox`（common）新增 `searchable`（默认 `false`）：只读下拉的**面板顶部多一条搜索行**（放大镜 + 单行输入，文案走 `searchHint` / `noMatchText`，缺省英文、中文由宿主传入），输入即按 `itemToString` 做大小写不敏感的子串过滤，无匹配时留一行占位文案（面板不塌）。**输入只是过滤、不是取值** —— 这一点与 `editable`（允许提交 `items` 之外的自定义值）刻意分开：连接 / 库 / 模式这类「值必须来自列表」的选择器可以放心开输入搜索，敲错的查询永远提交不上去（Enter 取第一个匹配项，Escape 关面板，面板每次打开都从「无筛选」开始）。面板高度随过滤结果收缩（最多 10 行），搜索行严格等于 `controlHeight`、由独立一层 1px 分隔线收口。
   同时修掉两处面板刷新缺陷（旧代码里都存在）：① 候选列表 / 选中下标原先在 `_buildOverlayEntry` 里**捕获**，而 `OverlayEntry` 刷新时只重跑自己的 builder —— 过滤与 hover 高亮都会拿着「打开那一刻」的旧值不放（症状就是输入没反应、鼠标划过不高亮），现在一律在 builder 内现算，刷新统一走 `markNeedsBuild`；② 面板外层 `Container` 的 `decoration` 边框会被 `Container` 当作内边距用，子项可用高度比 `maxHeight` 少掉两条边框 —— 一旦把列表换成固定高度就稳定溢出 2px，故去掉 `constraints`（各行高度本就算死，不需要兜底）。回归测试见 `test/widgets_test.dart`（输入窄化列表 / Enter 取首个匹配 / 无匹配查询绝不提交 / 只读模式无搜索行）。
 
@@ -21,6 +42,10 @@
 
 * `DataGridView`（lists）新增 `selectedRows`（`Set<int>?`）：**多行选中渲染**。集合非空时接管行底色与行号列选中态（`rowNumberBuilder` 的 `rowSelected` 参数），此时 `selectedRow` 被忽略。指针语义不变：`onRowSelected` 仍只回传点击行号，宿主自行读修饰键（Ctrl 加选 / Shift 连选）更新集合并回传，符合「行为归宿主、绘制归组件」的既有分工。用于表数据浏览页像 Navicat 那样多行选中 + 复制 / 粘贴 / 删除。缺省 `null` 与旧版一致，既有调用零影响。
 
+* `DataGridView`（lists）**拖拽框选补上纵向滚动偏移**：跟踪指针的 `Listener` 包在 `ListView` **外层**，其 `localPosition.dy` 是视口坐标，而 `_rowAtY` 直接 `dy ~/ rowHeight` 当成绝对行号 —— 一旦滚动过（含框选到边缘触发的自动滚动），选中的是「可见第几行」而不是指针所在的行（纵向偏移越大错得越多，自动滚动时选区还会反向收缩）。现统一加上 `verticalScrollController.offset`。横向无需处理：该 `Listener` 本身在外层横向视口的内容坐标系里。回归测试见 `test/data_grid_region_select_test.dart`。
+
+* `DataGridView`（lists）框选模式下 `onCellTap` 改在**抬起且未发生拖拽**时触发：此前它挂在单元格的 `onPointerDown` 上，而 `Listener` 模式下选中与「进入就地编辑」必须分家 —— 按下就开编辑器，随后拖出的框选会和一个正在抢焦点的输入框打架。现在按下只更新选中集合（零延迟不变），抬手时若确认没拖动才补发 `onCellTap`，宿主可放心在此进入编辑；框选 / 拖拽收尾不会误开编辑器，`onPointerCancel` 同样不发。未传 `onCellsSelected` 的调用方行为完全不变。
+
 * `InlineEditor`（form）新增 `selectAll`（默认 `false`）：进入编辑时全选初始文本，供节点内联改名等「键入即覆盖」场景使用；`true` 时 controller 预置全选区并同步 `Input.selectAllOnFocus`。默认值下行为与旧版完全一致（光标置于文本末尾），既有调用零影响。
 
 * 修复 `Button`（common）禁用态**吞掉父级点击**：`onPressed == null` 时 `onTap` / `onTapDown` / `onTapUp` 都已置空，唯独 `onTapCancel` 仍无条件注册，于是 `TapGestureRecognizer` 照样进入竞技场、并因层级比父级更深而胜出——父级收不到这次点击，按钮自己又什么都不做。现在 disabled 时四个点击回调全为 `null`，按钮彻底不注册识别器，包裹它的父级触发器（`Sheet` / `Command` 的 `trigger: Button(...)`）恢复可用。与 WinForms 一致：禁用控件不吞鼠标消息。回归测试见 `test/widgets_test.dart`（禁用按钮点父级仍触发）与 `test/modern_components_test.dart`（SidePanel / Command 经禁用 trigger 打开）。
@@ -40,6 +65,8 @@
 * `Button` 新增 `ButtonVariant.primary`（common）：对话框 / 面板里**唯一主操作**的实心强调色按钮（确定、应用、保存）。底色 `primaryColor`、文字 `accentForegroundColor`，禁用时两者各降不透明度（0.45 / 0.6）而非换成灰色面；描边与底色同色（纯色块无边界感），仅在聚焦时换成 `foregroundColor` 描边。hover / pressed 仍走叠加色，但因 `hoverOverlayColor` 在实心色底上几乎不可见（约 4% 黑），两级都改用 `pressedOverlayColor` 叠加——hover 一层、按下两层，保证快节奏下反馈可辨。零动画、无 Material 水波纹，按下不抢焦点、完整点击才聚焦（与 `solid` 同一套焦点时机）。默认值不变，既有调用零影响。
 
 * `DataGridView` 表头支持**两行标题**：`DataGridViewColumn` 新增 `subtitle`（第二行文本，如列数据类型）与 `subtitleGlyph`（副标题前的 accent 色小字形，如 `#` / `abc`）。任一列带副标题时表头整体加高 14px 并切换为两行布局（标题行 + 14px 副标题行，无副标题的列第二行留空保持对齐）；副标题字号比 `headerFontSize` 小 1.5px、取 `mutedForegroundColor`。全部列都不带副标题时高度与渲染与旧版完全一致，既有调用零影响。排序箭头仍位于标题行右侧。
+
+* `DataGridViewColumn` 新增 `subtitleIcon`（`IconData?`）：与 `subtitleGlyph` **同一槽位**的前导标记，画 11px 的 `accentColor` 图标。用于缩写文本表达不清的列类型（如日期时间族的时钟轮廓）。同时给出两者时图标优先、文本字形被忽略；两行的判定（表头加高、`hasSubtitle`）已把 `subtitleIcon` 计入。
 * 修复 `DataGridView`(lists) 数据行**缺横向分隔线、最后一行没有下边框**：此前每行的 `Container` 只画背景色，竖线来自单元格的 `right` 边框，但整表唯一的横线只有表头下边框与最外层 `Border.all`；当行数不满可视区（末行下方是空白）时末行像是悬空、没有收口线。现给 `_DataGridRow` 的行容器改用 `BoxDecoration`，保留原背景色的同时补上 `bottom` 边框（颜色 `gridLineColor`、宽度 `borderWidth`，与竖线一致），使每行都有下边线、最后一行自然收口，符合 WinForms DataGridView 的行网格语义。
 
 * 修复 `ComboBox`（common）下拉**点击热区塌成文字大小**：必须精确点到候选项/触发框的文字才能选中或展开，点行内空白或左右内边距无响应。根因是带 `alignment` 的 `Container` 内部走 `Align`、其命中测试为 `deferToChild`，背景虽铺满整行但空白区不参与命中；外层 `Listener` 默认同为 `deferToChild`，于是整行热区缩到子节点尺寸。现给只读触发框、只读候选项与可编辑候选项（`_EditableOption`）三处 `Listener` 补上 `behavior: HitTestBehavior.opaque`，使整行（含内边距与 Expanded 空白区）均可按下选中，零延迟交互与视觉保持不变。

@@ -7,6 +7,21 @@ import 'package:base_ui_flutter/base_ui_flutter.dart';
 
 Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
+/// The fill [Surface] paints for [target] (its own decorated container).
+BoxDecoration _surfaceDecoration(WidgetTester tester, Finder target) {
+  final containers = tester
+      .widgetList<Container>(find.descendant(of: target, matching: find.byType(Container)))
+      .where((c) => c.decoration is BoxDecoration);
+  expect(containers, isNotEmpty, reason: 'no painted surface under $target');
+  return containers.first.decoration as BoxDecoration;
+}
+
+Color? surfaceFill(WidgetTester tester, Finder target) =>
+    _surfaceDecoration(tester, target).color;
+
+Border? surfaceBorder(WidgetTester tester, Finder target) =>
+    _surfaceDecoration(tester, target).border as Border?;
+
 void main() {
   group('Supplements', () {
     testWidgets('TypeStyle renders all variants', (tester) async {
@@ -117,6 +132,50 @@ void main() {
       );
       await tester.tap(find.byType(Toggle));
       expect(selected, isTrue);
+    });
+
+    testWidgets('Toggle hover lands on the hover fill within one frame',
+        (tester) async {
+      await tester.pumpWidget(wrap(Toggle(
+        selected: false,
+        variant: ToggleVariant.ghost,
+        onChanged: (_) {},
+        child: const Icon(Icons.filter_alt),
+      )));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await tester.pump();
+      await mouse.moveTo(tester.getCenter(find.byType(Toggle)));
+      // 只推进一帧、不留时间：底色必须已经落定，而不是从 transparent
+      // 插值（插值中途是半透明深灰，肉眼即「先黑一下再变浅」）
+      await tester.pump();
+      final hover = DesktopTokens.winForm.controlHoverColor;
+      expect(surfaceFill(tester, find.byType(Toggle)), hover);
+      // 再推进一帧也不该有任何过渡中间值（旧实现此处是半透明深灰）
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(surfaceFill(tester, find.byType(Toggle)), hover);
+    });
+
+    testWidgets('Toggle ghost tints when selected and never draws a border',
+        (tester) async {
+      Widget build(bool selected) => wrap(Toggle(
+            selected: selected,
+            variant: ToggleVariant.ghost,
+            onChanged: (_) {},
+            child: const Icon(Icons.filter_alt),
+          ));
+
+      await tester.pumpWidget(build(false));
+      expect(surfaceBorder(tester, find.byType(Toggle)), isNull);
+
+      await tester.pumpWidget(build(true));
+      final t = DesktopTokens.winForm;
+      expect(
+        surfaceFill(tester, find.byType(Toggle)),
+        Color.alphaBlend(t.accentColor.withValues(alpha: 0.16), t.controlColor),
+      );
+      expect(surfaceBorder(tester, find.byType(Toggle)), isNull);
     });
 
     testWidgets('ToggleGroup manages single selection', (tester) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../common/check_box.dart';
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
 
@@ -98,8 +99,6 @@ class _CheckedListBoxState<T> extends State<CheckedListBox<T>> {
       height: 1.0,
     );
     final rowPadding = EdgeInsets.symmetric(horizontal: t.compactSpacing);
-    final boxSide = BorderSide(color: t.borderColor, width: t.borderWidth);
-    final checkSize = t.controlHeight * 0.75;
 
     return Focus(
       focusNode: _focusNode,
@@ -124,23 +123,11 @@ class _CheckedListBoxState<T> extends State<CheckedListBox<T>> {
                 padding: rowPadding,
                 child: Row(
                   children: [
-                    SizedBox(
-                      width: checkSize,
-                      height: checkSize,
-                      child: Checkbox(
-                        value: isChecked,
-                        onChanged: (_) => _toggle(index),
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                        fillColor: WidgetStateProperty.resolveWith(
-                          (states) => isChecked
-                              ? t.primaryColor
-                              : t.surfaceColor,
-                        ),
-                        checkColor: t.surfaceColor,
-                        side: boxSide,
-                      ),
+                    // onChanged 置空 = 被动指示器,点击由整行的 onTap 处理
+                    CheckBox(
+                      value: isChecked,
+                      enabled: widget.enabled,
+                      tokens: t,
                     ),
                     SizedBox(width: t.compactSpacing),
                     Expanded(
