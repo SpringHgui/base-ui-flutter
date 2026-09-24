@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
+import 'menu_metrics.dart';
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -298,7 +299,11 @@ class _MenuDropDown extends StatefulWidget {
 class _MenuDropDownState extends State<_MenuDropDown> {
   @override
   Widget build(BuildContext context) {
-    final t = widget.tokens;
+    // 下钻面板用紧凑的菜单尺寸令牌:行高 / 字号 / 内边距各收一档。否则菜单项
+    // 会沿用工具栏按钮那套偏大的档位(controlHeight 28 / fontSize 13 /
+    // controlPaddingX 12 / compactSpacing 4),条目显得空、间距过大。
+    // menuPanelTokens 幂等,子菜单再取一次也不会越收越小。
+    final t = menuPanelTokens(widget.tokens);
     final minWidth = 180.0;
 
     return Stack(
@@ -337,9 +342,15 @@ class _MenuDropDownState extends State<_MenuDropDown> {
               constraints: BoxConstraints(minWidth: minWidth),
               padding: EdgeInsets.symmetric(vertical: t.compactSpacing),
               decoration: BoxDecoration(
-                color: t.surfaceColor,
+                // 菜单面用「次级灰」secondaryColor,而非纯白 surfaceColor:
+                // 桌面工具的菜单本就比内容区暗一档(WinForms #F0F0F0),
+                // 纯白下拉贴在白内容上"太白"、看不出是浮层;暗色主题下
+                // secondary 比 surface 更深,同样得到"菜单更沉"的观感。
+                color: t.secondaryColor,
+                // 边框同右键菜单:取比 borderColor 深一档的 buttonBorderColor,
+                // 否则发丝线压在次级灰菜单面看不出轮廓(见 ContextMenuPanel)。
                 border: Border.all(
-                    color: t.borderColor, width: t.borderWidth),
+                    color: t.buttonBorderColor, width: t.borderWidth),
               ),
               child: IntrinsicWidth(
                 child: Column(
@@ -364,7 +375,10 @@ class _MenuDropDownState extends State<_MenuDropDown> {
               vertical: t.compactSpacing, horizontal: t.controlPaddingX),
           child: Container(
             height: t.borderWidth,
-            color: t.borderColor,
+            // 分隔线取比菜单面深一档的 buttonBorderColor。注意顶部菜单的 tokens
+            // 被 daro 覆盖成 borderColor == surface(#F8F8F8),压在 secondary 灰
+            // 面板(#F1F1F1)上等于隐形,所以这里不能用 borderColor。
+            color: t.buttonBorderColor,
           ),
         ),
       MenuItem() => _MenuDropDownItem(

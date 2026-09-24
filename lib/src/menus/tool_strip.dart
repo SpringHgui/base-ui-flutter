@@ -641,8 +641,12 @@ class _ToolStripDropDownOverlay extends StatelessWidget {
             constraints: const BoxConstraints(minWidth: 140),
             padding: EdgeInsets.symmetric(vertical: t.compactSpacing),
             decoration: BoxDecoration(
-              color: t.surfaceColor,
-              border: Border.all(color: t.borderColor, width: t.borderWidth),
+              // 与 MenuStrip / 右键菜单一致:下拉面板用 secondaryColor。
+              color: t.secondaryColor,
+              // 边框同 MenuStrip / 右键菜单:取深一档的 buttonBorderColor,
+              // 否则发丝线压在次级灰下拉面上看不出轮廓。
+              border: Border.all(
+                  color: t.buttonBorderColor, width: t.borderWidth),
             ),
             child: IntrinsicWidth(
               child: Column(

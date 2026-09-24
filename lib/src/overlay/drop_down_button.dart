@@ -102,8 +102,13 @@ class _DropDownButtonState extends State<DropDownButton> {
         constraints: BoxConstraints(minWidth: t.controlHeight * 5),
         padding: EdgeInsets.symmetric(vertical: t.compactSpacing),
         decoration: BoxDecoration(
-          color: t.popoverColor,
-          border: Border.all(color: t.borderColor, width: t.borderWidth),
+          // 下拉列表属"菜单面",用 secondaryColor(次级灰)与 MenuStrip /
+          // 右键菜单保持一致,避免纯白浮层"太白"。
+          color: t.secondaryColor,
+          // 边框同 MenuStrip / 右键菜单:取深一档的 buttonBorderColor,
+          // 否则发丝线压在次级灰菜单面上看不出轮廓。
+          border: Border.all(
+              color: t.buttonBorderColor, width: t.borderWidth),
           borderRadius: BorderRadius.circular(t.cornerRadius),
           boxShadow: [
             BoxShadow(

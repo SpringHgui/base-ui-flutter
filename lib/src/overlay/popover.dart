@@ -85,8 +85,13 @@ class Popover extends StatelessWidget {
         width: width,
         padding: padding,
         decoration: BoxDecoration(
-          color: t.popoverColor,
-          border: Border.all(color: t.borderColor, width: t.borderWidth),
+          // 浮动面板统一用 secondaryColor(次级灰):Popover 多数当菜单用
+          // (连接 / 库 / 模式选择器),纯白"太白"且与菜单不一致。
+          color: t.secondaryColor,
+          // 边框同 MenuStrip / 右键菜单:取深一档的 buttonBorderColor,
+          // 否则发丝线压在次级灰浮层上看不出轮廓。
+          border: Border.all(
+              color: t.buttonBorderColor, width: t.borderWidth),
           borderRadius: BorderRadius.circular(t.cornerRadius),
           boxShadow: [
             BoxShadow(

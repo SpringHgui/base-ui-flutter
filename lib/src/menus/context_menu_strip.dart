@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
+import 'menu_metrics.dart';
 import 'menu_strip.dart';
 
 /// 菜单面板的最小宽度(短条目也会撑到这个宽度,与 Win10 右键菜单一致)。
@@ -149,6 +150,8 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
   @override
   Widget build(BuildContext context) {
     final t = widget.tokens;
+    // 与面板内部一致的紧凑尺寸,用于高度估算(否则按 28px 行高估会多算、贴边时折回过早)
+    final menuT = menuPanelTokens(t);
 
     // Clamp the menu inside the screen: right-clicking near the bottom / right
     // edge would otherwise push the panel out of view.
@@ -158,7 +161,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
     if (screen != null) {
       final entryCount = widget.items.whereType<MenuItem>().length;
       final estimatedHeight =
-          entryCount * t.controlHeight + t.compactSpacing * 2 + t.borderWidth * 2;
+          entryCount * menuT.controlHeight + menuT.compactSpacing * 2 + t.borderWidth * 2;
       const estimatedWidth = _minWidth + 24;
       if (top + estimatedHeight > screen.height) {
         top = math.max(0, screen.height - estimatedHeight);
@@ -226,17 +229,25 @@ class ContextMenuPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = tokens;
+    // 右键菜单用更紧凑的尺寸令牌:行高 / 字号 / 内边距比通用控件小一档
+    final t = menuPanelTokens(tokens);
     return MouseRegion(
       onEnter: (_) => onHoverEnter?.call(),
       child: Material(
         elevation: 2,
-        color: t.surfaceColor,
+        // 与 MenuStrip 下拉一致:菜单面用 secondaryColor(次级灰),
+        // 而不是纯白的 surfaceColor —— 纯白右键菜单"太白"、不像浮层。
+        color: t.secondaryColor,
         child: Container(
           constraints: const BoxConstraints(minWidth: _minWidth),
           padding: EdgeInsets.symmetric(vertical: t.compactSpacing),
           decoration: BoxDecoration(
-            border: Border.all(color: t.borderColor, width: t.borderWidth),
+            // 浮层边框要比内容区的发丝分隔线深一档:borderColor(#E7E7E7)压在
+            // secondaryColor(#F1F1F1)菜单面上几乎看不见,等于没有边框。取
+            // buttonBorderColor(亮色 #D0D0D0 / 暗色 ~#636363)——它本就是
+            // "比通用控件边线深一档、补回轮廓"的那档灰,且明暗自适应。
+            border: Border.all(
+                color: t.buttonBorderColor, width: t.borderWidth),
           ),
           child: IntrinsicWidth(
             child: Column(
@@ -255,7 +266,9 @@ class ContextMenuPanel extends StatelessWidget {
       MenuSeparator() => Padding(
           padding: EdgeInsets.symmetric(
               vertical: t.compactSpacing, horizontal: t.controlPaddingX),
-          child: Container(height: t.borderWidth, color: t.borderColor),
+          // 分隔线取比菜单面深一档的 buttonBorderColor:borderColor(#E7E7E7)
+          // 压在 secondaryColor(#F1F1F1)菜单面上几乎看不见(与面板外框同档灰)。
+          child: Container(height: t.borderWidth, color: t.buttonBorderColor),
         ),
       MenuItem() => _ContextMenuItem(
           item: model,
