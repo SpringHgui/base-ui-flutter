@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -31,6 +32,9 @@ const double _closeReserve = 20;
 
 /// 选中标签比未选中的兄弟高出多少(经典 WinForms / Navicat 的"拔起"效果)。
 const double _raise = 2.0;
+
+/// 滚动箭头格的宽度(标签条两端各一格)。
+const double _kArrowWidth = 24.0;
 
 /// 未选中标签底色相对标签条底色的提亮量。
 ///
@@ -111,6 +115,11 @@ class TabItem extends StatelessWidget {
 /// divider on its right edge (so two adjacent tabs are separated by exactly
 /// one hairline, not two), plus a left hairline on the first tab — but only
 /// when the strip is framed together with a page body (see [_TabHeader.drawLeftEdge]).
+/// The bottom hairline is drawn on every tab **except the selected one**, so
+/// the selected tab reads as "open" into the content below (see
+/// [_TabChrome.drawBottom]); a header-only strip has no full-width bottom line
+/// of its own, so each cell draws its own, otherwise the row's lower edge
+/// dissolves into the background.
 /// The selected tab is filled with the surface colour, sticks up [_raise]
 /// pixels above its siblings and reaches one hairline lower, so it covers the
 /// strip's bottom line and merges seamlessly with the framed page below — the
@@ -129,7 +138,9 @@ class TabItem extends StatelessWidget {
 /// document strip), and [barHeight] to override the height.
 ///
 /// Supports fixed-width tabs, closable tabs, per-tab context menus, and
-/// scroll arrows when the headers overflow the bar. A header-only usage
+/// scroll arrows when the headers overflow the bar. [pinnedCount] keeps the
+/// leading N headers outside the scroll viewport so they never scroll away.
+/// A header-only usage
 /// (every [TabItem.child] `null`, e.g. a tab strip embedded above an external
 /// content area) renders without the page panel — and therefore without the
 /// first tab's left hairline, since there is no framed box to close.
@@ -142,6 +153,7 @@ class TabControl extends StatefulWidget {
     required this.tabs,
     this.tabBarColor,
     this.selectedTabColor,
+    this.unselectedTabColor,
     this.hoverTabColor,
     this.barHeight,
     this.tabWidth,
@@ -149,6 +161,7 @@ class TabControl extends StatefulWidget {
     this.tabPaddingX,
     this.scrollStep = 120,
     this.contentPadding,
+    this.pinnedCount = 0,
   });
 
   /// Index of the initially selected tab.
@@ -170,6 +183,16 @@ class TabControl extends StatefulWidget {
   /// Background of the selected tab and the page panel (they read as one
   /// surface); `null` = the token surface colour.
   final Color? selectedTabColor;
+
+  /// Background of an unselected tab; `null` = the strip colour lifted
+  /// [_unselectedLift] toward the surface colour.
+  ///
+  /// 显式钉死这个颜色可以避免"提亮"步骤把纯白调成近白:当调用方的 surface 与
+  /// strip 都接近白色时(例如 daro 的 `surfaceColor == background` 配上白色
+  /// 标签条),提亮结果会落在 #FCFCFC~#FDFDFD 这类**不是纯白**的档位上,整条
+  /// 标签看起来就"不干净"。要求"未选中 = 纯白"的调用方直接传
+  /// [DesktopTokens.backgroundColor] 即可。
+  final Color? unselectedTabColor;
 
   /// Background of a hovered (unselected) tab; `null` = the token hover
   /// overlay blended over the strip colour.
@@ -197,6 +220,17 @@ class TabControl extends StatefulWidget {
   /// [DesktopTokens.compactSpacing] * 2. Header-only usage (e.g. a tab bar
   /// embedded in a fixed-height strip) passes [EdgeInsets.zero].
   final EdgeInsets? contentPadding;
+
+  /// 条首固定、不参与滚动的标签个数(默认 0 = 全部可滚动)。
+  ///
+  /// 前 N 个标签排在滚动视口**之外**,始终贴在标签条左边;其余标签进
+  /// 滚动视口。典型用法是 daro 的文档标签条:第一个永远是"对象"页
+  /// (`AppState.objectsTabKey`),它是应用的主入口,不该被后面打开的标签
+  /// 挤出视野 —— 否则打开的标签一多,想回到"对象"页就只能先一路滚回最左。
+  ///
+  /// 固定标签照常参与选中/键盘导航,只是 [_ensureVisible] 对它们直接跳过
+  /// (恒在视野里),且判定"是否溢出"时会先把它们的宽度从可用宽度里扣掉。
+  final int pinnedCount;
 
   /// 标签条本身的可见高度(未选中标签头 + 页面顶线 + 选中标签上浮量)。
   ///
@@ -231,8 +265,19 @@ class _TabControlState extends State<TabControl> {
   bool _canScrollLeft = false;
   bool _canScrollRight = false;
 
-  /// 本帧所有标签头的总宽度,在 [build] 里算好后供滚动箭头判定使用。
+  /// 本帧**可滚动**标签头的总宽度(不含固定标签),在 [build] 里算好后
+  /// 供滚动箭头判定使用。
   double _tabsWidth = 0;
+
+  /// 本帧固定标签头的总宽度(不参与滚动的那部分)。
+  ///
+  /// 判定"要不要滚动"时必须把它从可用宽度里扣掉 —— 否则固定标签会被算成
+  /// 可滚动内容,标签稍多就误判成溢出、平白弹出箭头。
+  double _pinnedWidth = 0;
+
+  /// 本帧**可滚动**标签头的宽度(与 [build] 同源,不含固定标签),
+  /// 用于把选中标签滚进可视区。
+  List<double> _scrollWidths = const [];
 
   @override
   void initState() {
@@ -245,7 +290,11 @@ class _TabControlState extends State<TabControl> {
   void didUpdateWidget(TabControl oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.initialIndex != oldWidget.initialIndex) {
-      _index = widget.initialIndex.clamp(0, widget.tabs.length - 1);
+      final next = widget.initialIndex.clamp(0, widget.tabs.length - 1);
+      if (next != _index) {
+        _index = next;
+        _scheduleEnsureVisible();
+      }
     }
   }
 
@@ -261,6 +310,7 @@ class _TabControlState extends State<TabControl> {
     if (index == _index || index < 0 || index >= widget.tabs.length) return;
     setState(() => _index = index);
     widget.onChanged?.call(index);
+    _scheduleEnsureVisible();
   }
 
   // ── 几何(Navicat 度量)────────────────────────────────────────────────
@@ -298,27 +348,87 @@ class _TabControlState extends State<TabControl> {
   /// Post-frame measurement of tab bar container width.
   /// Avoids [LayoutBuilder] which conflicts with [IntrinsicHeight]
   /// (e.g. when embedded inside a [DialogBox]).
-  void _measureTabBarWidth() {
+  ///
+  /// 同时刷新「是否需要箭头」和「两端还能不能滚」。老实现把两端可用性只挂在
+  /// 滚动监听上,而监听要等用户**已经滚动过**才会触发 —— 于是标签多到溢出时
+  /// 两个箭头一个都不出现,标签再也滚不到,即"标签太多时没有滚动"。
+  void _syncScrollMetrics() {
     if (!mounted) return;
     final box = _tabBarKey.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
     final containerWidth = box.size.width;
-    final needScroll = _tabsWidth > containerWidth - 24.0 * 2;
-    if (needScroll != _needScroll) {
-      setState(() => _needScroll = needScroll);
+    // 两端各留一个箭头格、再扣掉固定标签占的宽度后仍然放不下,才需要滚动。
+    final needScroll =
+        _tabsWidth > containerWidth - _pinnedWidth - _kArrowWidth * 2;
+    final canLeft = _canScrollTowards(-1, needScroll);
+    final canRight = _canScrollTowards(1, needScroll);
+    if (needScroll != _needScroll ||
+        canLeft != _canScrollLeft ||
+        canRight != _canScrollRight) {
+      setState(() {
+        _needScroll = needScroll;
+        _canScrollLeft = canLeft;
+        _canScrollRight = canRight;
+      });
     }
   }
 
+  /// [direction] 取 `-1` / `1` 时分别表示"还能向左 / 向右滚"。
+  ///
+  /// 留 0.5 的容差:滚动动画的终点是浮点值,严格比较会让箭头在触底后
+  /// 一直停在"可点"状态。
+  bool _canScrollTowards(int direction, bool needScroll) {
+    if (!needScroll || !_scroll.hasClients) return false;
+    final pos = _scroll.position;
+    return direction < 0
+        ? pos.pixels > 0.5
+        : pos.pixels < pos.maxScrollExtent - 0.5;
+  }
+
+  /// 滚动位置变化:只刷新两端箭头可用性(是否需要箭头由 [_syncScrollMetrics] 管)。
   void _updateArrowVisibility() {
-    final canLeft = _scroll.hasClients && _scroll.offset > 0;
-    final canRight = _scroll.hasClients &&
-        _scroll.offset < _scroll.position.maxScrollExtent;
+    if (!_needScroll) return;
+    final canLeft = _canScrollTowards(-1, true);
+    final canRight = _canScrollTowards(1, true);
     if (canLeft != _canScrollLeft || canRight != _canScrollRight) {
       setState(() {
         _canScrollLeft = canLeft;
         _canScrollRight = canRight;
       });
     }
+  }
+
+  /// 把第 [index] 个标签滚进可视区。
+  ///
+  /// 用键盘方向键或右键菜单切到被裁掉的标签时,选中的标签若留在视野之外,
+  /// 看起来就像"没切过去"。
+  void _ensureVisible(int index) {
+    if (!mounted || !_scroll.hasClients) return;
+    // 固定标签恒在视野里(它们的索引落在可滚动区之前),直接跳过。
+    final scrollIndex = index - widget.pinnedCount;
+    if (scrollIndex < 0 || scrollIndex >= _scrollWidths.length) return;
+    final pos = _scroll.position;
+    final left =
+        _scrollWidths.take(scrollIndex).fold<double>(0, (a, b) => a + b);
+    final right = left + _scrollWidths[scrollIndex];
+    final viewport = pos.viewportDimension;
+    double? target;
+    if (left < pos.pixels) {
+      target = left;
+    } else if (right > pos.pixels + viewport) {
+      target = right - viewport;
+    }
+    if (target == null) return;
+    _scroll.animateTo(
+      target.clamp(0.0, pos.maxScrollExtent),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+    );
+  }
+
+  /// 延到下一帧再滚:索引变化多发生在指针事件里,此刻滚动视图还没完成重排。
+  void _scheduleEnsureVisible() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVisible(_index));
   }
 
   void _scrollBy(double delta) {
@@ -372,10 +482,16 @@ class _TabControlState extends State<TabControl> {
     final stripH = headerH + lineH + (hasBody ? _raise : 0.0);
     final stripBg = widget.tabBarColor ?? t.controlColor;
 
+    // 前 [TabControl.pinnedCount] 个标签固定在条首、不参与滚动(如 daro 的
+    // "对象"页);其余标签进滚动视口。宽度仍按全量算,只是拆分归属:
+    // 固定部分的宽度要从"可用宽度"里扣掉,滚动部分的宽度才用于溢出判定。
+    final pinned = widget.pinnedCount.clamp(0, widget.tabs.length);
     final widths = <double>[
       for (final tab in widget.tabs) _headerWidth(context, t, tab),
     ];
-    _tabsWidth = widths.fold(0.0, (sum, w) => sum + w);
+    _pinnedWidth = widths.take(pinned).fold(0.0, (sum, w) => sum + w);
+    _tabsWidth = widths.skip(pinned).fold(0.0, (sum, w) => sum + w);
+    _scrollWidths = widths.sublist(pinned);
 
     Widget tabHeader(int i) {
       final selected = i == index;
@@ -386,12 +502,14 @@ class _TabControlState extends State<TabControl> {
                 tab: widget.tabs[i],
                 selected: true,
                 drawLeftEdge: hasBody && i == 0,
+                stripBottomLine: hasBody,
                 tokens: t,
                 onTap: () => _select(i),
                 height: stripH,
                 padX: _padX(t),
                 stripColor: stripBg,
                 selectedTabColor: widget.selectedTabColor,
+                unselectedTabColor: widget.unselectedTabColor,
                 hoverTabColor: widget.hoverTabColor,
               )
             // Unselected tabs stop one hairline above the strip's bottom
@@ -402,56 +520,81 @@ class _TabControlState extends State<TabControl> {
                   tab: widget.tabs[i],
                   selected: false,
                   drawLeftEdge: hasBody && i == 0,
+                  stripBottomLine: hasBody,
                   tokens: t,
                   onTap: () => _select(i),
                   height: headerH,
                   padX: _padX(t),
                   stripColor: stripBg,
                   selectedTabColor: widget.selectedTabColor,
+                  unselectedTabColor: widget.unselectedTabColor,
                   hoverTabColor: widget.hoverTabColor,
                 ),
               ),
       );
     }
 
-    final tabsRow = Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (_needScroll && _canScrollLeft)
-          _ScrollArrow(
-            tokens: t,
-            icon: Icons.chevron_left,
-            barColor: stripBg,
-            height: stripH,
-            onTap: () => _scrollBy(-widget.scrollStep),
-          ),
-        Expanded(
-          child: Focus(
-            focusNode: _barFocus,
-            onKeyEvent: _handleBarKey,
-            child: SingleChildScrollView(
-              controller: _scroll,
-              scrollDirection: Axis.horizontal,
-              physics: const NeverScrollableScrollPhysics(),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  for (var i = 0; i < widget.tabs.length; i++) tabHeader(i),
-                ],
+    // 固定标签与滚动视口、箭头同一行排布:[固定…] [左箭头] [滚动视口] [右箭头]。
+    // 左箭头必须紧跟在**固定标签右侧**,不能摆到整条最左端 —— 它滚的是固定块
+    // 之后的内容,摆在"对象"页左边会看起来像在滚一个钉死不动的标签。
+    final tabsRow = Focus(
+      focusNode: _barFocus,
+      onKeyEvent: _handleBarKey,
+      child: Listener(
+        // 桌面习惯:滚轮压在标签条上就直接横向滚,不必去够那对小箭头。
+        onPointerSignal: (event) {
+          if (event is! PointerScrollEvent) return;
+          final delta = event.scrollDelta.dy != 0
+              ? event.scrollDelta.dy
+              : event.scrollDelta.dx;
+          if (delta != 0) _scrollBy(delta);
+        },
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // 固定标签:排在滚动视口**之外** —— 它们不随滚动位移,
+            // 永远贴在标签条左侧(如 daro 的"对象"页)。
+            for (var i = 0; i < pinned; i++) tabHeader(i),
+            // 只要溢出,两个箭头就恒在(滚不动的一侧置灰),与 Navicat 一致 ——
+            // 若按"能不能滚"决定显隐,箭头会在滚动到端点时突然消失,整条标签
+            // 左右抽搐 24px。
+            if (_needScroll)
+              _ScrollArrow(
+                tokens: t,
+                icon: Icons.chevron_left,
+                barColor: stripBg,
+                height: stripH,
+                enabled: _canScrollLeft,
+                dividerOnRight: true,
+                onTap: () => _scrollBy(-widget.scrollStep),
+              ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _scroll,
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (var i = pinned; i < widget.tabs.length; i++)
+                      tabHeader(i),
+                  ],
+                ),
               ),
             ),
-          ),
+            if (_needScroll)
+              _ScrollArrow(
+                tokens: t,
+                icon: Icons.chevron_right,
+                barColor: stripBg,
+                height: stripH,
+                enabled: _canScrollRight,
+                onTap: () => _scrollBy(widget.scrollStep),
+              ),
+          ],
         ),
-        if (_needScroll && _canScrollRight)
-          _ScrollArrow(
-            tokens: t,
-            icon: Icons.chevron_right,
-            barColor: stripBg,
-            height: stripH,
-            onTap: () => _scrollBy(widget.scrollStep),
-          ),
-      ],
+      ),
     );
 
     return Column(
@@ -473,7 +616,7 @@ class _TabControlState extends State<TabControl> {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: Container(height: lineH, color: t.borderColor),
+                child: Container(height: lineH, color: t.buttonBorderColor),
               ),
             tabsRow,
             // Post-frame measurement: determines whether scroll arrows
@@ -481,7 +624,7 @@ class _TabControlState extends State<TabControl> {
             // IntrinsicHeight, e.g. inside DialogBox).
             Builder(builder: (_) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                _measureTabBarWidth();
+                _syncScrollMetrics();
               });
               return const SizedBox.shrink();
             }),
@@ -502,11 +645,16 @@ class _TabControlState extends State<TabControl> {
                 // Page colour matches the selected tab so they read as one
                 // surface; the top border is owned by the strip hairline.
                 color: widget.selectedTabColor ?? t.surfaceColor,
+                // 面板面色是白的(选中标签/正文同底),轮廓必须用比通用
+                // 细线深一档的控件边线,否则整块白色糊在一起 —— 与 Button
+                // "面色变白后补回轮廓感"同一条规则。
                 border: Border(
-                  left: BorderSide(color: t.borderColor, width: t.borderWidth),
-                  right: BorderSide(color: t.borderColor, width: t.borderWidth),
+                  left: BorderSide(
+                      color: t.buttonBorderColor, width: t.borderWidth),
+                  right: BorderSide(
+                      color: t.buttonBorderColor, width: t.borderWidth),
                   bottom: BorderSide(
-                      color: t.borderColor, width: t.borderWidth),
+                      color: t.buttonBorderColor, width: t.borderWidth),
                 ),
               ),
               child: Padding(
@@ -526,12 +674,14 @@ class _TabHeader extends StatefulWidget {
     required this.tab,
     required this.selected,
     required this.drawLeftEdge,
+    required this.stripBottomLine,
     required this.tokens,
     required this.onTap,
     required this.height,
     required this.padX,
     required this.stripColor,
     this.selectedTabColor,
+    this.unselectedTabColor,
     this.hoverTabColor,
   });
 
@@ -545,6 +695,14 @@ class _TabHeader extends StatefulWidget {
   /// 都为 null,如 daro 的文档标签条)悬在背景之上、下方没有框,画出来就是
   /// 标签左边多一条孤立竖线 —— 所以不画。
   final bool drawLeftEdge;
+
+  /// 标签条底部是否已经有横贯全宽的发丝线(带正文的标签条才有,由
+  /// [TabControl] 自己画)。
+  ///
+  /// 有的话未选中的标签**不必**自画底线 —— 它就在那条线的正上方紧贴,再画
+  /// 一条只会叠成 2px 粗。纯标签条(没有正文、因而不画全宽底线)才需要每个
+  /// 格子自己补底线,否则一排标签悬在白底上、下沿全无交代。
+  final bool stripBottomLine;
 
   final DesktopTokens tokens;
   final VoidCallback onTap;
@@ -561,6 +719,10 @@ class _TabHeader extends StatefulWidget {
 
   /// Background of the selected tab; `null` = the token surface colour.
   final Color? selectedTabColor;
+
+  /// Background of an unselected tab; `null` = the strip colour lifted toward
+  /// the surface colour (see [TabControl.unselectedTabColor]).
+  final Color? unselectedTabColor;
 
   /// Background of a hovered (unselected) tab; `null` = the token hover
   /// overlay blended over the strip colour.
@@ -584,11 +746,15 @@ class _TabHeaderState extends State<_TabHeader> {
   Widget build(BuildContext context) {
     final t = widget.tokens;
     final selected = widget.selected;
-    // 选中 = surface(与页面面板同底);未选中 = 条底向页面底色提亮一档,
-    // hover 再叠一层(明暗自适应)。
+    // 选中 = surface(与页面面板同底);未选中 = 调用方钉死的颜色,没给才
+    // 退回"条底向页面底色提亮一档";hover 再叠一层(明暗自适应)。
     final selectedBg = widget.selectedTabColor ?? t.surfaceColor;
-    final unselectedBg = Color.alphaBlend(
-        t.surfaceColor.withValues(alpha: _unselectedLift), widget.stripColor);
+    // 未选中:优先用调用方钉死的颜色。白底标签条上"向面色提亮"会把纯白调成
+    // #FCFCFC~#FDFDFD 这类近白,白得不利落,整条标签就发脏。
+    final unselectedBg = widget.unselectedTabColor ??
+        Color.alphaBlend(
+            t.surfaceColor.withValues(alpha: _unselectedLift),
+            widget.stripColor);
     final hoverBg = widget.hoverTabColor ??
         Color.alphaBlend(t.hoverOverlayColor, widget.stripColor);
     final bg = selected ? selectedBg : (_hover ? hoverBg : unselectedBg);
@@ -609,12 +775,18 @@ class _TabHeaderState extends State<_TabHeader> {
         onTap: widget.onTap,
         child: _TabChrome(
           color: bg,
-          borderColor: t.borderColor,
+          // 标签面色是白的/近白的,轮廓用控件边线(比通用细线深一档)才立得住:
+          // 通用细线压在纯白标签上几乎看不见,标签之间就糊成一片"脏白"。
+          borderColor: t.buttonBorderColor,
           borderWidth: t.borderWidth,
           // 每个标签都画顶边 + 右侧分隔线;左边线只给首个标签,且仅当标签条
           // 与正文构成闭合框(相邻两标签因此共用一条 1px 竖线,与 Navicat 一致)。
           drawLeft: widget.drawLeftEdge,
           drawRight: true,
+          // 底边只有**未选中**的标签才画:选中那个留空,与下方正文连通。
+          // 但若条底本来就有全宽的底线(带正文的标签条),就别再画 —— 两者
+          // 正好重叠,会叠成 2px 粗。
+          drawBottom: !widget.stripBottomLine && !selected,
           child: SizedBox(
             height: widget.height,
             child: isClosable
@@ -684,13 +856,17 @@ class _TabHeaderState extends State<_TabHeader> {
 
 /// Self-drawn tab chrome: a flat square box filled with [color] and stroked
 /// with hairlines — top always, right ([drawRight], which doubles as the
-/// divider against the next tab) and left ([drawLeft], first tab of a framed
-/// strip only).
+/// divider against the next tab), left ([drawLeft], first tab of a framed
+/// strip only) and bottom ([drawBottom], every tab **except the selected
+/// one**).
 ///
 /// The fill is inset by the right hairline so two adjacent tabs share exactly
-/// one divider column instead of drawing two. The bottom edge is never
-/// stroked: the selected tab reaches over the strip's bottom line so it
-/// merges with the page panel below.
+/// one divider column instead of drawing two.
+///
+/// 底边只画在**未选中**的标签上(选中那个传 `drawBottom: false`):它的底边
+/// 留空,与下方内容连通,这是经典 WinForms / Navicat 的"抽屉"观感 —— 一排
+/// 标签都站在那里,只有当前这个"往下开口"。它也因此比兄弟多占那 1px 底边
+/// (填充一直铺到条底),看着像跟正文连成一块。
 class _TabChrome extends StatelessWidget {
   const _TabChrome({
     required this.color,
@@ -699,6 +875,7 @@ class _TabChrome extends StatelessWidget {
     required this.drawLeft,
     required this.drawRight,
     required this.child,
+    this.drawBottom = false,
   });
 
   final Color? color;
@@ -706,6 +883,7 @@ class _TabChrome extends StatelessWidget {
   final double borderWidth;
   final bool drawLeft;
   final bool drawRight;
+  final bool drawBottom;
   final Widget child;
 
   @override
@@ -717,6 +895,7 @@ class _TabChrome extends StatelessWidget {
         borderWidth: borderWidth,
         drawLeft: drawLeft,
         drawRight: drawRight,
+        drawBottom: drawBottom,
       ),
       child: child,
     );
@@ -730,6 +909,7 @@ class _TabChromePainter extends CustomPainter {
     required this.borderWidth,
     required this.drawLeft,
     required this.drawRight,
+    required this.drawBottom,
   });
 
   final Color? color;
@@ -737,6 +917,7 @@ class _TabChromePainter extends CustomPainter {
   final double borderWidth;
   final bool drawLeft;
   final bool drawRight;
+  final bool drawBottom;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -768,6 +949,13 @@ class _TabChromePainter extends CustomPainter {
         stroke,
       );
     }
+    // Bottom hairline: 未选中的标签才有(选中那个留空与正文连通)。
+    if (drawBottom) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, size.height - borderWidth, size.width, borderWidth),
+        stroke,
+      );
+    }
   }
 
   @override
@@ -776,7 +964,8 @@ class _TabChromePainter extends CustomPainter {
       oldDelegate.borderColor != borderColor ||
       oldDelegate.borderWidth != borderWidth ||
       oldDelegate.drawLeft != drawLeft ||
-      oldDelegate.drawRight != drawRight;
+      oldDelegate.drawRight != drawRight ||
+      oldDelegate.drawBottom != drawBottom;
 }
 
 class _ScrollArrow extends StatefulWidget {
@@ -786,6 +975,8 @@ class _ScrollArrow extends StatefulWidget {
     required this.barColor,
     required this.height,
     required this.onTap,
+    this.enabled = true,
+    this.dividerOnRight = false,
   });
 
   final DesktopTokens tokens;
@@ -797,6 +988,14 @@ class _ScrollArrow extends StatefulWidget {
 
   final VoidCallback onTap;
 
+  /// 该方向是否还能继续滚。不能时箭头置灰且不响应点击 —— 两端箭头恒在
+  /// (Navicat 的做法),只是到头的一侧变灰,不在滚动时忽隐忽现。
+  final bool enabled;
+
+  /// 分隔线画在哪一侧:左箭头画右缘、右箭头画左缘,把箭头格与标签分开。
+  /// 否则白底标签条上只剩一个孤零零的雪佛龙,看不出是个可点的格子。
+  final bool dividerOnRight;
+
   @override
   State<_ScrollArrow> createState() => _ScrollArrowState();
 }
@@ -807,23 +1006,50 @@ class _ScrollArrowState extends State<_ScrollArrow> {
   @override
   Widget build(BuildContext context) {
     final t = widget.tokens;
+    final active = widget.enabled;
+    final hovered = active && _hover;
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
+      cursor: active ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
+        onTap: active ? widget.onTap : null,
         child: Container(
-          width: 24,
+          width: _kArrowWidth,
           height: widget.height,
-          color: _hover
-              ? Color.alphaBlend(t.hoverOverlayColor, widget.barColor)
-              : widget.barColor,
+          // 显式居中:Container 有 child 但没给 alignment 时,child 是被摆在
+          // 内边距的**左上角**(不是居中),雪佛龙会挤在格子左上,与标签文字
+          // 的居中基线对不齐。
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: hovered
+                ? Color.alphaBlend(t.hoverOverlayColor, widget.barColor)
+                : widget.barColor,
+            border: Border(
+              // 顶/底边:箭头格也是标签条的一段 —— 标签头都画顶线,未选中的
+              // 标签头又画底线;少了这两条,箭头看着像浮在条外的一座孤岛
+              // (顶线和底线都在箭头处断开)。箭头没有"选中"态,两条恒有。
+              top: BorderSide(
+                  color: t.buttonBorderColor, width: t.borderWidth),
+              bottom: BorderSide(
+                  color: t.buttonBorderColor, width: t.borderWidth),
+              left: widget.dividerOnRight
+                  ? BorderSide.none
+                  : BorderSide(
+                      color: t.buttonBorderColor, width: t.borderWidth),
+              right: widget.dividerOnRight
+                  ? BorderSide(
+                      color: t.buttonBorderColor, width: t.borderWidth)
+                  : BorderSide.none,
+            ),
+          ),
           child: Icon(
             widget.icon,
             size: 16,
-            color: _hover ? t.foregroundColor : t.mutedForegroundColor,
+            color: !active
+                ? t.disabledForegroundColor
+                : (hovered ? t.foregroundColor : t.mutedForegroundColor),
           ),
         ),
       ),
