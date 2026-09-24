@@ -78,7 +78,19 @@ class _IconBtnState extends State<IconBtn> {
   final FocusNode _focusNode = FocusNode(debugLabel: 'IconBtn');
 
   @override
+  void initState() {
+    super.initState();
+    // 焦点进出不会自动触发 rebuild,不监听的话键盘 Tab 聚焦后毫无视觉反馈。
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     super.dispose();
   }
@@ -103,6 +115,7 @@ class _IconBtnState extends State<IconBtn> {
         widget.tokens ?? TokenScope.maybeOf(context) ?? DesktopTokens.winForm;
     final enabled = widget.onTap != null;
     final accent = widget.selectedColor ?? t.primaryColor;
+    final focused = _focusNode.hasFocus;
 
     final iconColor = widget.color ?? t.mutedForegroundColor;
 
@@ -119,6 +132,9 @@ class _IconBtnState extends State<IconBtn> {
           ? t.pressedOverlayColor
           : t.hoverOverlayColor;
       bg = Color.alphaBlend(overlay, t.controlColor);
+    } else if (focused) {
+      // 键盘聚焦时给一个浅 accent 背景,否则 Tab 聚焦后看不出焦点落点。
+      bg = Color.alphaBlend(accent.withValues(alpha: 0.14), t.controlColor);
     }
 
     final content = Container(
@@ -134,12 +150,14 @@ class _IconBtnState extends State<IconBtn> {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(t.cornerRadius),
-        border: widget.outline
-            ? Border.all(
-                color: widget.selected ? accent : (widget.color ?? t.borderColor),
-                width: t.borderWidth,
-              )
-            : null,
+        border: Border.all(
+          color: focused
+              ? accent
+              : (widget.outline
+                  ? (widget.selected ? accent : (widget.color ?? t.borderColor))
+                  : Colors.transparent),
+          width: t.borderWidth,
+        ),
       ),
       child: widget.child ??
           Icon(
@@ -158,10 +176,20 @@ class _IconBtnState extends State<IconBtn> {
         onExit: (_) => setState(() => _hover = false),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+          onTapDown: enabled
+              ? (_) {
+                  _focusNode.requestFocus();
+                  setState(() => _pressed = true);
+                }
+              : null,
           onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
           onTapCancel: () => setState(() => _pressed = false),
-          onTap: enabled ? widget.onTap : null,
+          onTap: enabled
+              ? () {
+                  _focusNode.requestFocus();
+                  widget.onTap!();
+                }
+              : null,
           child: content,
         ),
       ),

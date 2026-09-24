@@ -34,9 +34,9 @@ enum ButtonVariant {
 /// [text] is kept only as a semantic label.
 ///
 /// Focus behavior (WinForms convention):
-/// - 按下(pointer down)只显示 pressed 视觉,**不获取焦点**;
-/// - **完整点击**(按下 + 松开都在按钮内)才 `requestFocus`,显示焦点边框;
-/// - 长按后移走鼠标(tap 取消)不会获取焦点;
+/// - **按下(pointer down)即 `requestFocus`**,显示焦点边框,即使随后按住拖出
+///   按钮外再松开(tap 取消)也保留焦点;这与桌面按钮一致;
+/// - **完整点击**(按下 + 松开都在按钮内)额外触发 `onPressed` 回调;
 /// - Tab 键导航聚焦后同样显示焦点边框。
 class Button extends StatefulWidget {
   const Button({
@@ -83,9 +83,8 @@ class Button extends StatefulWidget {
 
 /// [Button] 的 State:管理 hover / pressed / focus 状态。
 ///
-/// 不使用 `TextButton`(其 InkWell `canRequestFocus` 会在按下瞬间请求焦点,
-/// 导致"长按移走鼠标"也显示焦点边框),改为
-/// `GestureDetector + MouseRegion + Focus` 手绘,聚焦时机完全可控。
+/// 手写 `GestureDetector + MouseRegion + Focus`,按下(pointer down)即请求焦点,
+/// 与桌面按钮一致;只有**完整点击**(按下 + 松手都在按钮内)才触发 `onPressed`。
 class _ButtonState extends State<Button> {
   /// 下边框的加暗量(~10.5% 黑),见 build 里的说明。
   static const Color _bottomShade = Color(0x1B000000);
@@ -101,10 +100,18 @@ class _ButtonState extends State<Button> {
     super.initState();
     _ownsFocusNode = widget.focusNode == null;
     _focusNode = widget.focusNode ?? FocusNode();
+    // 焦点进出不会自动触发 rebuild,而 build 里读的 _focusNode.hasFocus
+    // 又不会自己刷新;不监听的话,键盘 Tab 聚焦后聚焦边框 / 背景永远画不出来。
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChange);
     if (_ownsFocusNode) {
       _focusNode.dispose();
     }
@@ -150,8 +157,11 @@ class _ButtonState extends State<Button> {
       bg = _pressed
           ? Color.alphaBlend(t.pressedOverlayColor, t.controlColor)
           : _hover
-          ? Color.alphaBlend(t.hoverOverlayColor, t.controlColor)
-          : Colors.transparent;
+              ? Color.alphaBlend(t.hoverOverlayColor, t.controlColor)
+              : _focusNode.hasFocus
+                  ? Color.alphaBlend(
+                      t.primaryColor.withValues(alpha: 0.14), t.controlColor)
+                  : Colors.transparent;
     } else if (primary) {
       // 实心色底上 hoverOverlay(约 4% 黑)几乎看不出来,故两级都取
       // pressedOverlay:hover 叠一层,按下再叠一层
@@ -181,7 +191,12 @@ class _ButtonState extends State<Button> {
     // 蓝面配灰边会显出一条"没跟上"的轮廓。
     final Border? border;
     if (ghost) {
-      border = null;
+      // ghost 是「无边框」变体,但若完全不画聚焦边框,键盘 Tab 聚焦后看不出
+      // 焦点落点。聚焦时补一圈强调色描边,常态用透明边框占位避免布局抖动。
+      border = Border.all(
+        color: _focusNode.hasFocus ? t.primaryColor : Colors.transparent,
+        width: t.borderWidth,
+      );
     } else if (primary) {
       border = Border.all(
         color: _focusNode.hasFocus ? t.foregroundColor : bg,
@@ -223,7 +238,12 @@ class _ButtonState extends State<Button> {
         onExit: disabled ? null : (_) => setState(() => _hover = false),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTapDown: disabled ? null : (_) => setState(() => _pressed = true),
+          onTapDown: disabled
+              ? null
+              : (_) {
+                  _focusNode.requestFocus();
+                  setState(() => _pressed = true);
+                },
           onTapUp: disabled ? null : (_) => setState(() => _pressed = false),
           onTapCancel: disabled ? null : () => setState(() => _pressed = false),
           onTap: disabled ? null : _handlePressed,
