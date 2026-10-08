@@ -21,6 +21,7 @@ class Popover extends StatelessWidget {
     this.width,
     this.padding,
     this.closeOnScroll = true,
+    this.toggleOnTap = true,
     this.onOpenChanged,
     this.tokens,
     this.scrollable = false,
@@ -47,6 +48,11 @@ class Popover extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
 
   final bool closeOnScroll;
+
+  /// When `false` the trigger tap does NOT open the surface — drive it via
+  /// [controller] instead (split buttons: body taps run an action, a nested
+  /// caret region toggles the menu).
+  final bool toggleOnTap;
   final ValueChanged<bool>? onOpenChanged;
 
   /// Token override; falls back to the enclosing [TokenScope], then to
@@ -77,6 +83,7 @@ class Popover extends StatelessWidget {
       align: align,
       gap: gap,
       closeOnScroll: closeOnScroll,
+      toggleOnTap: toggleOnTap,
       onOpenChanged: onOpenChanged,
       // A scrollable panel must know its cap before layout happens; passing
       // `infinity` lets the surface clamp it to the viewport height.

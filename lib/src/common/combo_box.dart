@@ -18,6 +18,7 @@ class ComboBox<T extends Object> extends StatefulWidget {
     required this.items,
     this.value,
     this.onChanged,
+    this.onTextChanged,
     this.editable = false,
     this.searchable = false,
     this.searchHint,
@@ -28,6 +29,7 @@ class ComboBox<T extends Object> extends StatefulWidget {
     this.enabled = true,
     this.itemToString,
     this.iconBuilder,
+    this.showBorder = true,
   });
 
   /// The list of selectable items.
@@ -38,6 +40,12 @@ class ComboBox<T extends Object> extends StatefulWidget {
 
   /// Called when the user picks a different item.
   final ValueChanged<T?>? onChanged;
+
+  /// 仅 [editable] 模式生效:用户在输入框里**敲字**时回调原文。
+  ///
+  /// [onChanged] 只在从下拉列表里**选中**一项时触发,手打的自由文本不会经它;
+  /// 需要把用户输入的值存下来的宿主(如网格里的类型单元格)必须同时接这个。
+  final ValueChanged<String>? onTextChanged;
 
   /// When `true`, the user can type a custom value.
   final bool editable;
@@ -81,6 +89,13 @@ class ComboBox<T extends Object> extends StatefulWidget {
   /// current value and every entry of the drop-down list. `null` (default)
   /// renders text only, exactly as before.
   final Widget? Function(T item)? iconBuilder;
+
+  /// 是否绘制边框与底色。默认 `true`(1px 描边 + 面色)。
+  ///
+  /// 传 `false` 得到**贴在宿主网格上的扁平单元格**:不描边、不填底,文字直接
+  /// 落在宿主背景上 —— 与 [Input.showBorder] 同一约定,供表格 / 设计器使用
+  /// (参考工具的设计器网格:静止态每格都没有框,只有 1px 网格线)。
+  final bool showBorder;
 
   @override
   State<ComboBox<T>> createState() => _ComboBoxState<T>();
@@ -225,22 +240,6 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
         ? t.controlDisabledColor
         : (widget.editable ? t.surfaceColor : t.controlColor);
 
-    final dropdownItems = widget.items
-        .map(
-          (item) => DropdownMenuItem<T>(
-            value: item,
-            child: Text(
-              _itemString(item),
-              style: TextStyle(
-                fontFamily: t.fontFamily,
-                fontSize: t.fontSize,
-                color: t.foregroundColor,
-              ),
-            ),
-          ),
-        )
-        .toList();
-
     // No LayoutBuilder: it conflicts with IntrinsicHeight when the combo box
     // is embedded inside a DialogBox ("LayoutBuilder does not support
     // returning intrinsic dimensions"). The popup width is measured on
@@ -252,12 +251,14 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
         height: t.controlHeight,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: fillColor,
-            border: Border.all(color: borderColor, width: t.borderWidth),
+            color: widget.showBorder ? fillColor : Colors.transparent,
+            border: widget.showBorder
+                ? Border.all(color: borderColor, width: t.borderWidth)
+                : null,
             borderRadius: BorderRadius.circular(t.cornerRadius),
           ),
           child: widget.editable
-              ? _buildEditable(t, dropdownItems)
+              ? _buildEditable(t)
               : _buildReadOnly(t),
         ),
       ),
@@ -606,7 +607,6 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
 
   Widget _buildEditable(
     DesktopTokens t,
-    List<DropdownMenuItem<T>> dropdownItems,
   ) {
     // RawAutocomplete (unlike Autocomplete) accepts an external
     // focusNode and textEditingController, so the caller-supplied
@@ -663,6 +663,7 @@ class _ComboBoxState<T extends Object> extends State<ComboBox<T>> {
             controller: controller,
             focusNode: focusNode,
             enabled: widget.enabled,
+            onChanged: widget.onTextChanged,
             cursorColor: t.primaryColor,
             textAlignVertical: TextAlignVertical.center,
             style: TextStyle(

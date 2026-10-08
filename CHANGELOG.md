@@ -1,5 +1,26 @@
 ## Unreleased
 
+* `ListPickerDialog`（dialogs）按宿主参考工具（Navicat 表设计器「继承自」）的实测形状重做，**由裸勾选清单改成带表头的单列网格**：① 新增 `itemHeader`（缺省 `名称`）——列表上方一条 `secondaryColor` 表头，候选只有一列；② 行首加 16px「当前行」槽，打开时第 0 行为当前行，**单击行即把 ▶ 移过去**（`Listener.onPointerDown`，零延迟），勾选状态不受影响——点行=选行、点框=勾选，两套语义分开（原实现整行 `onTap` 即勾选，鼠标想确认看哪一行就顺手改了选择）；③ 底部左侧新增 ↑ / ↓（`IconBtn`，边界行自动置灰），移动当前行；④ **确定后按当前行序回传**，不再是候选列表顺序。第 ④ 条是行为变更而非装饰：调用方要的是「用户排出来的顺序」（`INHERITS (父表…)` 就按这个顺序写），按候选顺序回传等于把 ↑↓ 白做。行渲染内置（不再走 `CheckedListBox`），尺寸 / 配色全部仍从 `DesktopTokens` 取。回归测试见 `test/list_picker_dialog_test.dart`。
+
+* 新增 `TextDiffView`（data / `text_diff_view.dart`，barrel 导出）：左右分栏的「之前 / 之后」逐行对比。`diffTextLines(a, b)` 是顶层纯函数（先掐公共前后缀、中段跑 LCS，> 600 行退化为整段增删，避免打开页面卡在计算上），返回**两侧行数相同**的对齐行，故两栏共用一条垂直滚动、行高天然对齐；紧邻的「删除段 + 新增段」一对一配对成 `replaced`，改动行在两侧同一行上同色，而不是左一条红杠右一条绿杠各说各话。配色按 token 派生并随明暗自适应（亮色加深、暗色提亮），空槽（该侧没有这一行）用中性灰与「有内容但没变」区分。宿主用它复刻参考工具（Navicat）视图设计器 SQL 预览的 DDL 对比页。回归测试见 `test/text_diff_view_test.dart`。
+
+* 新增 `gridCellTokens(t)`（lists / `grid_metrics.dart`，barrel 导出）：表格与属性面板的**紧凑尺寸档**——`fontSize ≤ 12`、`controlHeight ≤ 20`、`controlPaddingX ≤ 5`（实测参考工具的设计器：行高 20.5、属性字段高 19.5、单元格文字左内边距 5）。与 `menuPanelTokens` 同一套约定：按 **min 上限**收，故幂等（宿主重复套不会越缩越小）、且用户把字号调得更小时保持用户的更小值；只动尺寸，**不碰颜色**。宿主用法是把整块区域包进 `TokenScope`，区域内的 `Input` / `ComboBox` 一起落档，不必逐控件传 `height`（`ComboBox` 本来也没有 `height` 形参）。
+
+* `ComboBox`（common）两处：
+  ① 新增 `showBorder`（默认 `true`）：传 `false` 得到**贴在宿主网格上的扁平单元格**——不描边、不填底，文字直接落在网格线上。与既有 `Input.showBorder` 同一约定；daro 的表设计器网格静止态每格都不该有框，只有 1px 网格线。
+  ② 修**每次重建都白造一整套候选项 widget**：`build()` 里无条件把 `items` 映射成 `DropdownMenuItem`（每项一个 `Text`）列表，而这份列表只有 `_buildEditable` 的一个**从未使用**的形参在收——即下拉没打开也在按选项数造 widget。宿主把设计器网格的类型列（40+ 个类型候选）做成常开编辑器后，这直接进到了每次敲字的重建成本里。现在随参数一并删除。
+  ③ 新增 `onTextChanged`（仅 `editable` 模式生效）：用户在输入框里**敲字**时回调原文。`onChanged` 只在从下拉列表里**选中**一项时触发，手打的自由文本（如类型单元格里直接敲 `varchar(50)`）从不经它——需要留下用户输入值的宿主必须同时接这个，否则 typed 的值静默丢失。
+
+* `CheckBox`（common）新增 `size`：方框边长，缺省仍是 `controlHeight * 0.5`。宿主把行高压到 20 之后，按比例算出的方框只剩 10px，比参考工具实测的 13px 小一圈；勾选框是**命中目标**，不该跟着行高缩。
+
+* `ToolbarButton`（menus）两处：
+  ① 新增 `paddingX`（缺省 `compactSpacing * 2` = 8）。纯图标按钮的点击块宽 = 图标 + 2 × 内边距，参考工具实测那一档是 25（14 图标 + 5.5 × 2）；只给 `width` 不改内边距的话，内容固有宽 30 > 外框 25 会直接溢出报错。
+  ② 修 `tooltip` 与 `width` 互斥：`Tooltip` 原先包的是**内层 content**，于是设了 `width` 的按钮一旦带 tooltip，定宽那层 `SizedBox` 就被丢掉、按钮退回内容宽。现在 `Tooltip` 包在最外层。
+
+* `ToolbarButton`（menus）新增 `filled` / `caretAtEnd` / `width`，`Popover`（overlay）透传 `toggleOnTap`：给「白底定宽下拉框 + 拆分按钮」用的三个正交开关。`filled` = WinForms ComboBox 的静态字段外观（`backgroundColor` 白底、`borderColor` 恒灰描边，hover / pressed 不变色不变底——下拉框是输入区不是按钮，跟随 hover 会误导可点性）；`caretAtEnd` 把尾部 ▾ 钉到控件右端、文本吃掉剩余宽度并省略号截断（需配合 `width`，缺 `width` 时退化为普通间距，避免 `Spacer` 在无界宽度下抛断言）；`width` 固定总宽。`Popover.toggleOnTap: false` 让触发区点击不再开合弹层、纯由 `controller` 驱动——拆分按钮（主体按下即执行、尾部小箭头单独开菜单，如 daro 查询页「▷ 运行 ▾」）需要这种分工，`AnchoredOverlay` 早有此参数只是 Popover 没露出来。
+
+* `Button`（common）ghost 变体的**聚焦态不再铺底色，只保留强调色描边**。原先 ghost 聚焦会叠一层 `primaryColor` 14% 的浅蓝底，而宿主工具条 / ribbon 上「当前模式」的选中态通常是同一族浅色染色（daro 的 ribbon 用 accent 16% 叠 `control`）——两档颜色肉眼几乎分不出，于是点了「新建查询」再切分类，同一排会出现**两个看着都被点中**的按钮。焦点是输入焦点、选中是状态，两套语义不能共用一种画法；现在聚焦只画一圈描边（Tab 键可达性不变），底色让给宿主的选中态。
+
 * `TabControl`（containers）标签条按 Navicat 实测重做溢出与配色：
   ① 新增 `pinnedCount`——条首前 N 个标签排在滚动视口**之外**，永不随滚动位移（宿主用它钉住主入口页）。固定标签照常参与选中与键盘导航，`_ensureVisible` 对它们直接跳过；判定「要不要出箭头」时先把它们的宽度从可用宽度里扣掉，否则固定块会被算进可滚动内容、标签稍多就误判溢出。
   ② 修**标签多到溢出时两个箭头一个都不出现**（整条标签再也滚不到）：两端可用性原先只挂在滚动监听上，而监听要等用户已经滚过才触发。现在溢出判定与两端可用性统一由测宽回调 `_syncScrollMetrics` 结算（滚动监听只刷新箭头），并且只要溢出就**恒定画出**两个箭头、滚不动的一侧置灰——按「能不能滚」决定显隐会让箭头在触底时突然消失，整条标签左右抽搐 24px。左箭头紧跟在固定块右侧，不摆到整条最左端。

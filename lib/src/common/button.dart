@@ -154,14 +154,14 @@ class _ButtonState extends State<Button> {
     final Color face = t.buttonFaceColor;
     final Color bg;
     if (ghost) {
+      // 聚焦**只画边框、不铺底色**。ghost 常见于工具条 / ribbon，那里通常另有
+      // 一套「当前模式」的选中底色（宿主自己铺的强调色浅底）。两者都用浅蓝底时
+      // 同一屏会出现两个看着都被点中的按钮 —— 焦点是输入焦点，不是状态。
       bg = _pressed
           ? Color.alphaBlend(t.pressedOverlayColor, t.controlColor)
           : _hover
               ? Color.alphaBlend(t.hoverOverlayColor, t.controlColor)
-              : _focusNode.hasFocus
-                  ? Color.alphaBlend(
-                      t.primaryColor.withValues(alpha: 0.14), t.controlColor)
-                  : Colors.transparent;
+              : Colors.transparent;
     } else if (primary) {
       // 实心色底上 hoverOverlay(约 4% 黑)几乎看不出来,故两级都取
       // pressedOverlay:hover 叠一层,按下再叠一层

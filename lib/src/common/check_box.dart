@@ -21,6 +21,7 @@ class CheckBox extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.enabled = true,
+    this.size,
   });
 
   /// Whether the box is currently checked.
@@ -50,6 +51,12 @@ class CheckBox extends StatelessWidget {
   /// Whether the check box is interactive. When `false`, renders disabled.
   final bool enabled;
 
+  /// 方框边长。`null` = `controlHeight * 0.5`(随控件档位走)。
+  ///
+  /// 紧凑宿主(如设计器网格里 20 高的行)需要方框**不跟着行高一起缩**——
+  /// 参考工具实测行高 20.5 而勾选框恒为 13,故由宿主钉死这个值。
+  final double? size;
+
   void _toggle() {
     onChanged?.call(!value);
   }
@@ -74,7 +81,7 @@ class CheckBox extends StatelessWidget {
     final interactive = enabled && onChanged != null;
 
     // 实心勾选框:选中态为强调色底 + 白色勾号,未选中保持描边空框
-    final boxSize = t.controlHeight * 0.5;
+    final boxSize = size ?? t.controlHeight * 0.5;
     final fillColor = !enabled
         ? t.controlDisabledColor
         : value

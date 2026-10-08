@@ -77,6 +77,7 @@ export 'src/lists/data_grid_view.dart';
 export 'src/lists/marquee_selector.dart';
 export 'src/lists/threshold_draggable.dart';
 export 'src/lists/property_grid.dart';
+export 'src/lists/grid_metrics.dart';
 
 // ── Containers ──────────────────────────────────────────────────────────────
 export 'src/containers/group_box.dart';
@@ -128,6 +129,7 @@ export 'src/dialogs/theme_designer.dart';
 export 'src/data/binding_navigator.dart';
 export 'src/data/chart.dart';
 export 'src/data/pagination.dart';
+export 'src/data/text_diff_view.dart';
 
 // ── Scroll Bars & Sliders ───────────────────────────────────────────────────
 export 'src/scroll/scroll_bar.dart';
