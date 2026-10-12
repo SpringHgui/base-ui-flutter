@@ -305,6 +305,9 @@ class DataGridView extends StatefulWidget {
 
   /// 横向视口宽度(逻辑像素)。与 [horizontalScrollController] 同时提供才启用
   /// 横向虚拟化;通常由宿主用 `LayoutBuilder` 取网格可用宽度传入。
+  ///
+  /// 宿主必须在视口宽度变化时重建并传新值:窗口最大化 / 拖动分隔条只走布局,
+  /// 不会自动触发重建,沿用旧宽度会让右侧列只画表头不画数据(留白)。
   final double? horizontalViewportWidth;
 
   @override
