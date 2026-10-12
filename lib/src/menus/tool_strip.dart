@@ -228,11 +228,13 @@ class _ToolStripState extends State<ToolStrip> {
           padding: EdgeInsets.symmetric(
               horizontal: t.compactSpacing, vertical: t.compactSpacing),
           child: Row(
-            // 左侧按钮组放进横向滚动区（Flexible 撑满剩余空间、把 trailing
+            // 左侧按钮组放进横向滚动区（Expanded 撑满剩余空间、把 trailing
             // 钉在右缘）：面板变窄 / trailing 展开时按钮可横向滚动，而不是
             // 撑爆 Row 触发 RenderFlex overflow；trailing 保持自然宽度靠右。
+            // 必须是 Expanded 而不是 Flexible(fit: loose)：后者不吸收余量，
+            // 于是 trailing 紧贴按钮组尾巴、整条右半空着（"最右侧搜索框"名不副实）。
             children: [
-              Flexible(
+              Expanded(
                 child: ScrollConfiguration(
                   behavior: ScrollConfiguration.of(context)
                       .copyWith(scrollbars: false),

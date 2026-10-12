@@ -170,6 +170,10 @@ class _ExpandableSearchState extends State<ExpandableSearch> {
     _controller = widget.controller ?? TextEditingController();
     _focusNode = FocusNode();
     _focusNode.addListener(_onFocusChange);
+    // 外部 controller 里已有文本就直接摊开：宿主把过滤词存在跨页面存活的状态对象里
+    // 时,本组件会随宿主页面反复销毁重建,默认收起会让输入框看着"被清空"了
+    // （内容其实还在,只是藏进放大镜）。
+    _expanded = _controller.text.isNotEmpty;
   }
 
   @override

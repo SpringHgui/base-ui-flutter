@@ -1,5 +1,9 @@
 ## Unreleased
 
+* `ToolStrip`（menus）修 **trailing 根本没钉在右缘**：左侧按钮组用的是 `Flexible(fit: loose)`，而 loose 不吸收主轴余量，于是 `Row` 把空量留在末尾，trailing 仍紧贴按钮尾巴、整条右半空着（注释里承诺的「把 trailing 钉在右缘」从未发生）。改成 `Expanded` 后按钮组吃掉余量，trailing 真正贴右；按钮多到放不下时照旧横向滚动，不会撑爆报 overflow。回归测试见 `test/tool_strip_trailing_test.dart`（窄按钮组时 trailing 与右缘对齐 / 12 个按钮不溢出）。
+
+* `ExpandableSearch`（form）展开态改为**跟随外部 controller 的初始内容**：`controller.text` 非空时直接以输入框起步，不再恒从放大镜开始。宿主把过滤词存在跨页面存活的状态对象里（daro 的对象面板搜索：切去表数据页会让面板整棵子树销毁），旧行为是内容其实还在、却被藏进放大镜，看着就像「搜索被清空了」。不传 `controller` 时行为不变（自建空 controller → 收起态）。
+
 * `ListPickerDialog`（dialogs）按宿主参考工具（Navicat 表设计器「继承自」）的实测形状重做，**由裸勾选清单改成带表头的单列网格**：① 新增 `itemHeader`（缺省 `名称`）——列表上方一条 `secondaryColor` 表头，候选只有一列；② 行首加 16px「当前行」槽，打开时第 0 行为当前行，**单击行即把 ▶ 移过去**（`Listener.onPointerDown`，零延迟），勾选状态不受影响——点行=选行、点框=勾选，两套语义分开（原实现整行 `onTap` 即勾选，鼠标想确认看哪一行就顺手改了选择）；③ 底部左侧新增 ↑ / ↓（`IconBtn`，边界行自动置灰），移动当前行；④ **确定后按当前行序回传**，不再是候选列表顺序。第 ④ 条是行为变更而非装饰：调用方要的是「用户排出来的顺序」（`INHERITS (父表…)` 就按这个顺序写），按候选顺序回传等于把 ↑↓ 白做。行渲染内置（不再走 `CheckedListBox`），尺寸 / 配色全部仍从 `DesktopTokens` 取。回归测试见 `test/list_picker_dialog_test.dart`。
 
 * 新增 `TextDiffView`（data / `text_diff_view.dart`，barrel 导出）：左右分栏的「之前 / 之后」逐行对比。`diffTextLines(a, b)` 是顶层纯函数（先掐公共前后缀、中段跑 LCS，> 600 行退化为整段增删，避免打开页面卡在计算上），返回**两侧行数相同**的对齐行，故两栏共用一条垂直滚动、行高天然对齐；紧邻的「删除段 + 新增段」一对一配对成 `replaced`，改动行在两侧同一行上同色，而不是左一条红杠右一条绿杠各说各话。配色按 token 派生并随明暗自适应（亮色加深、暗色提亮），空槽（该侧没有这一行）用中性灰与「有内容但没变」区分。宿主用它复刻参考工具（Navicat）视图设计器 SQL 预览的 DDL 对比页。回归测试见 `test/text_diff_view_test.dart`。
