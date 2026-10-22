@@ -1,5 +1,9 @@
 ## Unreleased
 
+* `TabControl`（containers）的 `TabItem` 新增可选 `tooltip`：非空时标签头包一层 `WinToolTip`（500ms 延迟，桌面悬浮习惯），鼠标悬停显示完整对象路径——宿主用它区分同名表（不同库 / 模式的 `organizations` 标签标题相同，只有悬浮才看得见 `表名 @ 库名（连接名）- 分类`）。`null` / 空 = 不显示，行为与旧版一致；包 `WinToolTip` 在 header 外层、不改标签宽度测量（`_headerWidth` 只量 label），故纯标签条自适应排布不受影响。
+
+* 新增 `ImeSuppression`（foundation / `ime.dart`，barrel 导出）：一个**宿主注入**的关输入法钩子，`Input` 在 `obscureText` 密码框获焦时调 `handler(true)`、失焦时调 `handler(false)`。base-ui 自身零平台代码，钩子默认 `null`（不接线时行为与旧版逐字一致）。解决的是 Flutter/Windows 的硬伤：没有「按字段禁用系统输入法」的 API（open issue flutter/flutter#181487），中文输入法会把**未上屏的拼音**也塞进 `obscureText` 的圆点计数里——宿主实测「打 `bx` 显示三个点、回车上屏变两个点」，圆点数对不上真实输入、还弹候选窗。有了这个钩子，桌面宿主可把密码框获焦期间彻底关成裸字符输入。`Input` 侧记住 `_imeSuppressed` 状态保证 suppress / restore 成对，并在 `dispose`（获焦时窗口被关）补一次还原，避免输入法被永久解绑。回归测试见 `test/input_ime_test.dart`。宿主接线见 daro `lib/app/ime_suppressor.dart` + `windows/runner` 的 `daro/ime` 通道（`ImmAssociateContext`）。
+
 * `ToolStrip`（menus）修 **trailing 根本没钉在右缘**：左侧按钮组用的是 `Flexible(fit: loose)`，而 loose 不吸收主轴余量，于是 `Row` 把空量留在末尾，trailing 仍紧贴按钮尾巴、整条右半空着（注释里承诺的「把 trailing 钉在右缘」从未发生）。改成 `Expanded` 后按钮组吃掉余量，trailing 真正贴右；按钮多到放不下时照旧横向滚动，不会撑爆报 overflow。回归测试见 `test/tool_strip_trailing_test.dart`（窄按钮组时 trailing 与右缘对齐 / 12 个按钮不溢出）。
 
 * `ExpandableSearch`（form）展开态改为**跟随外部 controller 的初始内容**：`controller.text` 非空时直接以输入框起步，不再恒从放大镜开始。宿主把过滤词存在跨页面存活的状态对象里（daro 的对象面板搜索：切去表数据页会让面板整棵子树销毁），旧行为是内容其实还在、却被藏进放大镜，看着就像「搜索被清空了」。不传 `controller` 时行为不变（自建空 controller → 收起态）。

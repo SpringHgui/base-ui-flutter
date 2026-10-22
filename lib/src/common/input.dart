@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../foundation/desktop_tokens.dart';
+import '../foundation/ime.dart';
 import '../foundation/token_scope.dart';
 import '../menus/text_box_context_menu.dart';
 
@@ -111,6 +112,10 @@ class _InputState extends State<Input> {
   bool _toggleHover = false;
   bool _togglePressed = false;
 
+  /// 当前是否已因这个密码框获焦而请求宿主关闭输入法(见 [ImeSuppression])。
+  /// 记住状态,保证 suppress / restore 成对、且失焦或销毁时一定还原。
+  bool _imeSuppressed = false;
+
   @override
   void initState() {
     super.initState();
@@ -128,16 +133,40 @@ class _InputState extends State<Input> {
     if (oldWidget.obscureText && !widget.obscureText) {
       _obscured = true;
     }
+    // obscureText 可能在获焦期间被外部改判,重新对齐输入法状态。
+    _syncIme();
   }
 
   void _handleFocusChange() {
+    _syncIme();
     if (mounted) {
       setState(() {});
     }
   }
 
+  /// 密码框获焦 → 请求关输入法,失焦 → 还原。宿主未注入 [ImeSuppression.handler]
+  /// (非桌面 / 未接线)时整段为空操作,行为与旧版一致。
+  void _syncIme() {
+    final handler = ImeSuppression.handler;
+    if (handler == null) return;
+    final shouldSuppress = widget.obscureText && _focusNode.hasFocus;
+    if (shouldSuppress && !_imeSuppressed) {
+      handler(true);
+      _imeSuppressed = true;
+    } else if (!shouldSuppress && _imeSuppressed) {
+      handler(false);
+      _imeSuppressed = false;
+    }
+  }
+
   @override
   void dispose() {
+    // 销毁时若仍占着「已关输入法」状态(如密码框获焦时窗口被关掉),必须还原,
+    // 否则输入法被永久解绑,后续所有输入框都打不了中文。
+    if (_imeSuppressed) {
+      ImeSuppression.handler?.call(false);
+      _imeSuppressed = false;
+    }
     _focusNode.removeListener(_handleFocusChange);
     if (_ownsFocusNode) {
       _focusNode.dispose();

@@ -36,6 +36,7 @@ export 'src/foundation/control.dart';
 export 'src/foundation/roving_tabindex.dart';
 export 'src/foundation/token_extensions.dart';
 export 'src/foundation/overlay.dart';
+export 'src/foundation/ime.dart';
 
 // ── Common Controls ─────────────────────────────────────────────────────────
 export 'src/common/button.dart';

@@ -8,6 +8,7 @@ import '../foundation/desktop_tokens.dart';
 import '../foundation/token_scope.dart';
 import '../menus/context_menu_strip.dart';
 import '../menus/menu_strip.dart';
+import '../misc/tool_tip.dart';
 
 /// 标签文本字号:比正文小一号。
 double _labelFontSize(DesktopTokens t) => t.fontSize * 0.875;
@@ -77,10 +78,14 @@ class TabItem extends StatelessWidget {
     this.onClose,
     this.width,
     this.contextMenuItems,
+    this.tooltip,
   });
 
   /// Tab header text.
   final String label;
+
+  /// Optional hover tooltip for the header. `null` / empty = none.
+  final String? tooltip;
 
   /// Optional leading icon.
   final Widget? icon;
@@ -495,7 +500,7 @@ class _TabControlState extends State<TabControl> {
 
     Widget tabHeader(int i) {
       final selected = i == index;
-      return SizedBox(
+      Widget header = SizedBox(
         width: widths[i],
         child: selected
             ? _TabHeader(
@@ -532,6 +537,11 @@ class _TabControlState extends State<TabControl> {
                 ),
               ),
       );
+      final tip = widget.tabs[i].tooltip;
+      if (tip != null && tip.isNotEmpty) {
+        header = WinToolTip(message: tip, tokens: t, child: header);
+      }
+      return header;
     }
 
     // 固定标签与滚动视口、箭头同一行排布:[固定…] [左箭头] [滚动视口] [右箭头]。
