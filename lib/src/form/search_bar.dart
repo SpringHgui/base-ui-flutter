@@ -129,12 +129,26 @@ class _SearchInputState extends State<SearchInput> {
   }
 }
 
+/// [ExpandableSearch] 的命令式句柄:宿主用键盘快捷键(如 Ctrl+F)要求搜索框
+/// 展开并接管焦点、或按 Esc 收起时调用。未挂到组件上时调用一律无副作用
+/// (组件随宿主页面反复销毁重建是常态)。
+class ExpandableSearchController {
+  _ExpandableSearchState? _state;
+
+  /// 展开为输入框并聚焦;已展开时仅聚焦。
+  void expandAndFocus() => _state?._expand();
+
+  /// 清空内容并收起为放大镜(会向宿主补发一次 onChanged(''))。
+  void collapse() => _state?._collapse();
+}
+
 /// 可展开的搜索框:收起时是一个放大镜按钮,点击展开为 [SearchInput];
 /// 失焦且内容为空时自动收起(工具栏搜索场景)。
 class ExpandableSearch extends StatefulWidget {
   const ExpandableSearch({
     super.key,
     this.controller,
+    this.expandController,
     this.hintText = '搜索...',
     this.expandedWidth = 200,
     this.onChanged,
@@ -144,6 +158,11 @@ class ExpandableSearch extends StatefulWidget {
   });
 
   final TextEditingController? controller;
+
+  /// 命令式展开 / 收起句柄,见 [ExpandableSearchController]。
+  /// 收起态下输入框并不在树上,外部 `FocusNode.requestFocus()` 打不开它,
+  /// 所以宿主想从快捷键进入搜索必须走这个句柄。
+  final ExpandableSearchController? expandController;
   final String hintText;
 
   /// 展开态输入框宽度。
@@ -174,10 +193,21 @@ class _ExpandableSearchState extends State<ExpandableSearch> {
     // 时,本组件会随宿主页面反复销毁重建,默认收起会让输入框看着"被清空"了
     // （内容其实还在,只是藏进放大镜）。
     _expanded = _controller.text.isNotEmpty;
+    widget.expandController?._state = this;
+  }
+
+  @override
+  void didUpdateWidget(ExpandableSearch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.expandController != widget.expandController) {
+      oldWidget.expandController?._state = null;
+      widget.expandController?._state = this;
+    }
   }
 
   @override
   void dispose() {
+    widget.expandController?._state = null;
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     if (_ownsController) _controller.dispose();

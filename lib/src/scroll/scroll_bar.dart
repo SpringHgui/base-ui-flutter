@@ -7,10 +7,10 @@ import '../foundation/token_scope.dart';
 enum ScrollBarOrientation { horizontal, vertical }
 
 /// 滚动条静止时的窄厚度。
-const double kScrollBarSlimThickness = 5.0;
+const double kScrollBarSlimThickness = 2.5;
 
 /// 滚动条悬浮 / 拖动时恢复的常规厚度。
-const double kScrollBarExpandedThickness = 8.0;
+const double kScrollBarExpandedThickness = 5.0;
 
 /// 「静止窄、鼠标悬浮上去后恢复常规宽度」的滚动条厚度策略。
 ///
@@ -35,7 +35,7 @@ WidgetStateProperty<double> scrollbarHoverThickness({
 /// infrastructure for data-heavy controls like [DataGridView].
 ///
 /// 宽度策略：静止时 [kScrollBarSlimThickness] 窄条；鼠标悬浮到滚动条上
-/// （或拖动它）时恢复到 `thumbThickness`（默认 8）。悬浮检测由本组件自己做
+/// （或拖动它）时恢复到 `thumbThickness`（默认 5）。悬浮检测由本组件自己做
 /// （MouseRegion 命中贴边热区）——不依赖 Material 内部悬浮状态，行为确定。
 class ScrollBar extends StatefulWidget {
   const ScrollBar({
@@ -61,7 +61,7 @@ class ScrollBar extends StatefulWidget {
   /// Token override.
   final DesktopTokens? tokens;
 
-  /// 悬浮 / 拖动时的滚动条宽度；静止时自动收窄。默认 8。
+  /// 悬浮 / 拖动时的滚动条宽度；静止时自动收窄。默认 5。
   final double? thumbThickness;
 
   /// Whether the scrollbar thumb is always visible.

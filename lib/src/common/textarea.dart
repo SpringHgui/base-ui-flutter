@@ -18,6 +18,7 @@ class Textarea extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
     this.enabled = true,
+    this.readOnly = false,
     this.minLines = 3,
     this.maxLines,
     this.autofocus = false,
@@ -47,6 +48,14 @@ class Textarea extends StatefulWidget {
 
   /// Whether the text area is editable.
   final bool enabled;
+
+  /// Content can be selected and copied but not typed into.
+  ///
+  /// Prefer this over `enabled: false` for read-only *content* (a rendered
+  /// value, a generated script): a disabled `TextField` ignores pointers, so
+  /// the text becomes look-only. `readOnly` keeps focus, selection and the
+  /// normal surface while rejecting edits.
+  final bool readOnly;
 
   /// Minimum number of visible lines.
   final int minLines;
@@ -116,6 +125,7 @@ class _TextareaState extends State<Textarea> {
       controller: _controller,
       focusNode: _focusNode,
       enabled: widget.enabled,
+      readOnly: widget.readOnly,
       autofocus: widget.autofocus,
       minLines: widget.expands ? null : widget.minLines,
       maxLines: widget.expands ? null : (widget.maxLines ?? widget.minLines),

@@ -1,5 +1,9 @@
 ## Unreleased
 
+* `Textarea`（common）新增 `readOnly`（默认 `false`）：**内容可选中复制、但不能敲字**。给「只读的产物」用（格式化出来的 JSON、生成的脚本），而不是 `enabled: false`——禁用的 `TextField` 会整块忽略指针事件（`ignorePointers ?? !_isEnabled`），文字变成看得见却选不中、也 Ctrl+C 不了；`readOnly` 保留焦点、选区与正常底色，只挡编辑。`enabled` 语义不变（禁用态仍换 disabled 描边/底色/文字色），两者正交：只读内容是 `enabled: true` + `readOnly: true`。回归测试见 `test/textarea_read_only_test.dart`。
+
+* `ExpandableSearch`（form）新增 `expandController`（`ExpandableSearchController`，barrel 导出）：宿主从键盘快捷键要求搜索框**展开并聚焦**（`expandAndFocus()`）或**收起**（`collapse()`）。原先收起态只能靠点放大镜——`FocusNode` 也救不了，因为收起时输入框根本不在树上，外部 `requestFocus()` 打不开它。句柄未挂到组件时调用无副作用（组件随宿主页面反复销毁重建是常态），并在 `didUpdateWidget` 里跟随句柄换绑。不传时行为与旧版一致。
+
 * `SplitContainer`（containers）修 **分隔条拖一下就卡死**：拖动起点记在 `build()` 的局部 `late double dragOrigin` 里，而每个 `DragUpdate` 都 `setState` 重建，`GestureDetector` 会把在途识别器的回调就地换成新闭包——新闭包捕获的是**本次**构建的局部量，它的 `onDragStart` 永远不会被调用，于是第二个事件读未初始化的 `dragOrigin` 抛 `LateInitializationError: Local 'dragOrigin' has not been initialized`。宿主表现是「键值浏览页上下两栏的分隔条只能拖约 10px，之后鼠标拖着走、栏不动」，异常只进日志不上屏。现在拖动起点（首块像素尺寸 + 指针全局坐标）记在 State 字段上，更新按**绝对坐标**算增量，重建换闭包不再影响在途拖动；同时补上 `onDragEnd` / `onDragCancel` 收尾（原先松手后起点状态残留）。回归测试见 `test/split_container_drag_test.dart`（横 / 竖两向，分多次小步拖动要求累计位移与指针位移 1:1；另测拖过 `minFirst` 后反向拖能立刻跟手）。
 
 * `DataGridView`（lists）修 **右键只弹菜单、不改选中**：右键分支原先在 `onCellContext` 之后直接 `return`，把选中逻辑留在了它后面，于是「右键落在哪个格」和「菜单作用于哪个格」是两件事——宿主菜单里的「置空 / 置为 NULL / 复制」跟着上一次的左键选区走，用户看着高亮框点右键，操作却打在别的格上。现在右键**先让落点成为选中目标再弹菜单**：落在选区**外**收缩为该单元格（行号列同理为该行为唯一选中），落在选区**内**保持整个集合不动，所以「置 NULL N 格 / 复制 N 行」这类批量口径不受影响。仍在同一条 `Listener.onPointerDown` 路径上完成，按下即生效、零延迟，也不触发 `onCellTap`（右键不进就地编辑）。`onCellContext` 的契约据此更新：宿主可直接读当前选中态来组织菜单项的单数/复数文案，不必自己补一次选中。
@@ -110,7 +114,7 @@
 
 * `MessageBox`（overlay）底部按钮区调整：**去掉正文与按钮之间的 `Separator` 分割线**，按钮行由右对齐改为**居中**。按钮顺序、自动聚焦（主按钮）、间距均不变。
 
-* 滚动条改为**静止窄条、悬浮加宽**：`ScrollBar` 由无状态改为自绘热区检测——`MouseRegion` 监听滚动条贴边一带（宽度 = 悬浮态宽度 + 4px），鼠标进入即把传给 `Scrollbar.thickness` 的宽度从 5px（`kScrollBarSlimThickness`）切回 8px（`kScrollBarExpandedThickness`，可用 `thumbThickness` 覆写，零动画即时切换）。不再依赖 Material 内部的悬浮 `WidgetState`（实测其在部分场景不可达）。同时新增 `scrollbarHoverThickness()`：按 `WidgetState.hovered / dragged` 切换厚度的 `WidgetStateProperty`，供宿主写入全局 `ThemeData.scrollbarTheme.thickness`，让 Flutter 默认滚动行为为普通 `ListView` / `ScrollView` 生成的滚动条也走同一策略。`thumbThickness` 语义变为「悬浮态宽度」。回归测试见 `test/scroll_bar_test.dart`（纵向/横向悬浮、自定义宽度、状态解析器）。
+* 滚动条改为**静止窄条、悬浮加宽**：`ScrollBar` 由无状态改为自绘热区检测——`MouseRegion` 监听滚动条贴边一带（宽度 = 悬浮态宽度 + 4px），鼠标进入即把传给 `Scrollbar.thickness` 的宽度从 2.5px（`kScrollBarSlimThickness`）切回 5px（`kScrollBarExpandedThickness`，可用 `thumbThickness` 覆写，零动画即时切换）。不再依赖 Material 内部的悬浮 `WidgetState`（实测其在部分场景不可达）。同时新增 `scrollbarHoverThickness()`：按 `WidgetState.hovered / dragged` 切换厚度的 `WidgetStateProperty`，供宿主写入全局 `ThemeData.scrollbarTheme.thickness`，让 Flutter 默认滚动行为为普通 `ListView` / `ScrollView` 生成的滚动条也走同一策略。`thumbThickness` 语义变为「悬浮态宽度」。回归测试见 `test/scroll_bar_test.dart`（纵向/横向悬浮、自定义宽度、状态解析器）。
 
 * `CheckBox` 的 `onChanged` 改为**可选**（common）：字段本就是 `ValueChanged<bool?>?`，仅构造器标了 `required`。传 `null` 即渲染一个被动的勾选指示器——视觉与可交互态**完全一致**（边框仍取 `foregroundColor`，禁用仍走 `enabled`），只是不注册 tap / 键盘处理。用途：勾选框位于 `DataGridView` 单元格里时，外层单元格的 `GestureDetector(onDoubleTap)` 会把勾选框自身的 `onTap` 扣在约 300ms 的双击判定窗口里，单击看起来「没反应」；宿主改用 `Listener.onPointerDown` 在按下瞬间结算勾选，`CheckBox` 只负责显示状态。既有调用全部不受影响。
 

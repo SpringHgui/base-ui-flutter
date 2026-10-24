@@ -52,7 +52,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('纵向滚动条:静止 5px,悬浮到右缘恢复 8px,移开后收窄', (tester) async {
+  testWidgets('纵向滚动条:静止 2.5px,悬浮到右缘恢复 5px,移开后收窄', (tester) async {
     await pumpBar(tester);
     expect(scrollbarThickness(tester), kScrollBarSlimThickness);
 
@@ -66,7 +66,7 @@ void main() {
     expect(scrollbarThickness(tester), kScrollBarSlimThickness);
   });
 
-  testWidgets('横向滚动条:悬浮到底缘恢复 8px', (tester) async {
+  testWidgets('横向滚动条:悬浮到底缘恢复 5px', (tester) async {
     await pumpBar(tester, orientation: ScrollBarOrientation.horizontal);
     expect(scrollbarThickness(tester), kScrollBarSlimThickness);
 
@@ -77,13 +77,23 @@ void main() {
   });
 
   testWidgets('thumbThickness 自定义悬浮宽度,静止宽度不超过它', (tester) async {
-    await pumpBar(tester, thumbThickness: 4);
-    expect(scrollbarThickness(tester), 4);
+    await pumpBar(tester, thumbThickness: 2);
+    expect(scrollbarThickness(tester), 2);
 
     final gesture = await mouseAt(tester, const Offset(400, 300));
     await gesture.moveTo(const Offset(498, 300));
     await tester.pumpAndSettle();
-    expect(scrollbarThickness(tester), 4);
+    expect(scrollbarThickness(tester), 2);
+  });
+
+  testWidgets('thumbThickness 宽于静止档:静止仍是窄档', (tester) async {
+    await pumpBar(tester, thumbThickness: 12);
+    expect(scrollbarThickness(tester), kScrollBarSlimThickness);
+
+    final gesture = await mouseAt(tester, const Offset(400, 300));
+    await gesture.moveTo(const Offset(498, 300));
+    await tester.pumpAndSettle();
+    expect(scrollbarThickness(tester), 12);
   });
 
   testWidgets('纵向条挂在横向滚动区之外:按轴过滤通知后仍能绘制(嵌套 depth 回归)',
