@@ -212,6 +212,10 @@ class DataGridView extends StatefulWidget {
   final void Function(int row, int col)? onCellDoubleTap;
 
   /// Called when a cell is right-clicked, with the global pointer position.
+  ///
+  /// 弹出前组件已把落点变为选中目标:落在选区**外**则收缩为该单元格/该行,
+  /// 落在选区**内**则保持原集合。因此宿主可在本回调里直接读当前选中态来组织
+  /// 菜单项(单数/复数文案、作用目标),不必自己再补一次选中。
   final void Function(int row, int col, Offset position)? onCellContext;
 
   /// Header row background; defaults to [DesktopTokens.controlColor].
@@ -1186,8 +1190,9 @@ class _DataGridRowState extends State<_DataGridRow> {
     );
   }
 
-  // 行号(选中)列:左键按下选中整行;右键只弹菜单、**不改选中**
-  // (与数据单元格一致,避免右键打断多行选中)
+  // 行号(选中)列:左键按下选中整行;右键**先落到该行再弹菜单** ——
+  // 但落在已选中行上时保持整个多选集不动(与数据单元格一致),
+  // 否则右键「复制 N 行」这类批量项会被自己的一下点击拆掉。
   Widget _buildRowNumberCell() {
     final w = widget;
     return SizedBox(
@@ -1197,6 +1202,7 @@ class _DataGridRowState extends State<_DataGridRow> {
         onPointerDown: w.enabled
             ? (event) {
                 if (event.buttons == kSecondaryMouseButton) {
+                  if (!w.isSelected) w.onRowSelected?.call(w.row);
                   w.onCellContext?.call(w.row, 0, event.position);
                   return;
                 }
@@ -1241,6 +1247,14 @@ class _DataGridRowState extends State<_DataGridRow> {
               // 拖拽进行中,跳过单元格选中逻辑(由 DataGridView 层统一处理)
               if (w.isDragging) return;
               if (event.buttons == kSecondaryMouseButton) {
+                // 右键先让落点成为选中目标,宿主的菜单才知道「当前单元格」是谁;
+                // 落在已有选区内时保持整个集合(「置 NULL N 格 / 复制 N 格」靠它)
+                if (multiSelect) {
+                  if (!cellSelected) w.onCellsSelected?.call({(w.row, col)});
+                } else {
+                  w.onCellSelected?.call(w.row, col);
+                  if (w.onCellSelected == null) w.onRowSelected?.call(w.row);
+                }
                 w.onCellContext?.call(w.row, col, event.position);
                 return;
               }

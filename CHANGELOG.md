@@ -1,5 +1,7 @@
 ## Unreleased
 
+* `DataGridView`（lists）修 **右键只弹菜单、不改选中**：右键分支原先在 `onCellContext` 之后直接 `return`，把选中逻辑留在了它后面，于是「右键落在哪个格」和「菜单作用于哪个格」是两件事——宿主菜单里的「置空 / 置为 NULL / 复制」跟着上一次的左键选区走，用户看着高亮框点右键，操作却打在别的格上。现在右键**先让落点成为选中目标再弹菜单**：落在选区**外**收缩为该单元格（行号列同理为该行为唯一选中），落在选区**内**保持整个集合不动，所以「置 NULL N 格 / 复制 N 行」这类批量口径不受影响。仍在同一条 `Listener.onPointerDown` 路径上完成，按下即生效、零延迟，也不触发 `onCellTap`（右键不进就地编辑）。`onCellContext` 的契约据此更新：宿主可直接读当前选中态来组织菜单项的单数/复数文案，不必自己补一次选中。
+
 * `TabControl`（containers）的 `TabItem` 新增可选 `tooltip`：非空时标签头包一层 `WinToolTip`（500ms 延迟，桌面悬浮习惯），鼠标悬停显示完整对象路径——宿主用它区分同名表（不同库 / 模式的 `organizations` 标签标题相同，只有悬浮才看得见 `表名 @ 库名（连接名）- 分类`）。`null` / 空 = 不显示，行为与旧版一致；包 `WinToolTip` 在 header 外层、不改标签宽度测量（`_headerWidth` 只量 label），故纯标签条自适应排布不受影响。
 
 * 新增 `ImeSuppression`（foundation / `ime.dart`，barrel 导出）：一个**宿主注入**的关输入法钩子，`Input` 在 `obscureText` 密码框获焦时调 `handler(true)`、失焦时调 `handler(false)`。base-ui 自身零平台代码，钩子默认 `null`（不接线时行为与旧版逐字一致）。解决的是 Flutter/Windows 的硬伤：没有「按字段禁用系统输入法」的 API（open issue flutter/flutter#181487），中文输入法会把**未上屏的拼音**也塞进 `obscureText` 的圆点计数里——宿主实测「打 `bx` 显示三个点、回车上屏变两个点」，圆点数对不上真实输入、还弹候选窗。有了这个钩子，桌面宿主可把密码框获焦期间彻底关成裸字符输入。`Input` 侧记住 `_imeSuppressed` 状态保证 suppress / restore 成对，并在 `dispose`（获焦时窗口被关）补一次还原，避免输入法被永久解绑。回归测试见 `test/input_ime_test.dart`。宿主接线见 daro `lib/app/ime_suppressor.dart` + `windows/runner` 的 `daro/ime` 通道（`ImmAssociateContext`）。
