@@ -1,5 +1,7 @@
 ## Unreleased
 
+* `SplitContainer`（containers）修 **分隔条拖一下就卡死**：拖动起点记在 `build()` 的局部 `late double dragOrigin` 里，而每个 `DragUpdate` 都 `setState` 重建，`GestureDetector` 会把在途识别器的回调就地换成新闭包——新闭包捕获的是**本次**构建的局部量，它的 `onDragStart` 永远不会被调用，于是第二个事件读未初始化的 `dragOrigin` 抛 `LateInitializationError: Local 'dragOrigin' has not been initialized`。宿主表现是「键值浏览页上下两栏的分隔条只能拖约 10px，之后鼠标拖着走、栏不动」，异常只进日志不上屏。现在拖动起点（首块像素尺寸 + 指针全局坐标）记在 State 字段上，更新按**绝对坐标**算增量，重建换闭包不再影响在途拖动；同时补上 `onDragEnd` / `onDragCancel` 收尾（原先松手后起点状态残留）。回归测试见 `test/split_container_drag_test.dart`（横 / 竖两向，分多次小步拖动要求累计位移与指针位移 1:1；另测拖过 `minFirst` 后反向拖能立刻跟手）。
+
 * `DataGridView`（lists）修 **右键只弹菜单、不改选中**：右键分支原先在 `onCellContext` 之后直接 `return`，把选中逻辑留在了它后面，于是「右键落在哪个格」和「菜单作用于哪个格」是两件事——宿主菜单里的「置空 / 置为 NULL / 复制」跟着上一次的左键选区走，用户看着高亮框点右键，操作却打在别的格上。现在右键**先让落点成为选中目标再弹菜单**：落在选区**外**收缩为该单元格（行号列同理为该行为唯一选中），落在选区**内**保持整个集合不动，所以「置 NULL N 格 / 复制 N 行」这类批量口径不受影响。仍在同一条 `Listener.onPointerDown` 路径上完成，按下即生效、零延迟，也不触发 `onCellTap`（右键不进就地编辑）。`onCellContext` 的契约据此更新：宿主可直接读当前选中态来组织菜单项的单数/复数文案，不必自己补一次选中。
 
 * `TabControl`（containers）的 `TabItem` 新增可选 `tooltip`：非空时标签头包一层 `WinToolTip`（500ms 延迟，桌面悬浮习惯），鼠标悬停显示完整对象路径——宿主用它区分同名表（不同库 / 模式的 `organizations` 标签标题相同，只有悬浮才看得见 `表名 @ 库名（连接名）- 分类`）。`null` / 空 = 不显示，行为与旧版一致；包 `WinToolTip` 在 header 外层、不改标签宽度测量（`_headerWidth` 只量 label），故纯标签条自适应排布不受影响。

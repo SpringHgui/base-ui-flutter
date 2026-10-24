@@ -60,6 +60,34 @@ class _SplitContainerState extends State<SplitContainer> {
   late double _ratio;
   bool _hovered = false;
 
+  /// 拖动起点：首块当时的像素尺寸与指针全局坐标。
+  ///
+  /// 必须是 State 字段而不能是 build() 里的局部变量：每个事件都会 setState 重建，
+  /// GestureDetector 把在途识别器的回调就地换成新闭包，新闭包捕获的是**本次**构建的
+  /// 局部量，而它的 dragStart 永远不会被调用 → 第二个事件读未初始化的 late 直接抛
+  /// LateInitializationError，表现就是「分隔条拖一下就不动了」。
+  double? _dragStartSize;
+  Offset? _dragStartPosition;
+
+  void _startDrag(Offset position, double firstSize) {
+    _dragStartSize = firstSize;
+    _dragStartPosition = position;
+  }
+
+  void _updateDrag(Offset position, double usable, {required bool horizontal}) {
+    final startSize = _dragStartSize;
+    final startPos = _dragStartPosition;
+    if (startSize == null || startPos == null) return;
+    final delta =
+        horizontal ? position.dx - startPos.dx : position.dy - startPos.dy;
+    _updateRatio((startSize + delta) / usable);
+  }
+
+  void _endDrag() {
+    _dragStartSize = null;
+    _dragStartPosition = null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -102,8 +130,6 @@ class _SplitContainerState extends State<SplitContainer> {
           final maxFirst = math.max(minFirst, usable - minSecond);
           first = first.clamp(minFirst, maxFirst);
         }
-        late double dragOrigin;
-        var dragTotal = 0.0;
 
         final divider = MouseRegion(
           cursor: widget.orientation == Axis.horizontal
@@ -114,29 +140,26 @@ class _SplitContainerState extends State<SplitContainer> {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onHorizontalDragStart: widget.orientation == Axis.horizontal
-                ? (_) {
-                    dragOrigin = first;
-                    dragTotal = 0;
-                  }
+                ? (d) => _startDrag(d.globalPosition, first)
                 : null,
             onHorizontalDragUpdate: widget.orientation == Axis.horizontal
-                ? (d) {
-                    dragTotal += d.delta.dx;
-                    _updateRatio((dragOrigin + dragTotal) / usable);
-                  }
+                ? (d) => _updateDrag(d.globalPosition, usable, horizontal: true)
+                : null,
+            onHorizontalDragEnd:
+                widget.orientation == Axis.horizontal ? (_) => _endDrag() : null,
+            onHorizontalDragCancel: widget.orientation == Axis.horizontal
+                ? _endDrag
                 : null,
             onVerticalDragStart: widget.orientation == Axis.vertical
-                ? (_) {
-                    dragOrigin = first;
-                    dragTotal = 0;
-                  }
+                ? (d) => _startDrag(d.globalPosition, first)
                 : null,
             onVerticalDragUpdate: widget.orientation == Axis.vertical
-                ? (d) {
-                    dragTotal += d.delta.dy;
-                    _updateRatio((dragOrigin + dragTotal) / usable);
-                  }
+                ? (d) => _updateDrag(d.globalPosition, usable, horizontal: false)
                 : null,
+            onVerticalDragEnd:
+                widget.orientation == Axis.vertical ? (_) => _endDrag() : null,
+            onVerticalDragCancel:
+                widget.orientation == Axis.vertical ? _endDrag : null,
             child: Container(
               width: widget.orientation == Axis.horizontal
                   ? widget.dividerWidth
